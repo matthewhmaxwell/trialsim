@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrialSim — AIMR</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script>window.PropTypes = window.PropTypes || window.propTypes;</script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f3f0; --bg2: #ffffff; --bg3: #eceae6; --bg4: #ddd9d3;
+    --text: #1e1e1e; --text2: #5c5650; --text3: #8c857e;
+    --accent: #b04e30; --accent2: #943f25; --accent-bg: rgba(176,78,48,0.06);
+    --green: #2d7a50; --green-bg: rgba(45,122,80,0.07);
+    --orange: #b07d20; --red: #a63d34;
+    --clinical: #3e73a8; --digital: #6e5494; --agentic: #2e7370;
+    --radius: 6px; --radius-lg: 10px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.08);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.1);
+    --border: #d4cfca;
+  }
+  body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; -webkit-font-smoothing: antialiased; }
+
+  /* ── Top Bar ─────────────────────────────────────────── */
+  .topbar { display: flex; align-items: center; height: 48px; padding: 0 24px; background: var(--bg2); border-bottom: 1px solid var(--border); gap: 16px; }
+  .topbar-brand { display: flex; align-items: center; gap: 10px; }
+  .topbar-brand .brand-org { font-size: 11px; font-weight: 700; color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase; }
+  .topbar-brand .brand-div { width: 1px; height: 18px; background: var(--bg4); }
+  .topbar-brand h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
+  .topbar-brand .beta-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; background: var(--accent-bg); border: 1px solid rgba(176,78,48,0.2); font-size: 9px; font-weight: 600; color: var(--accent); letter-spacing: 0.3px; margin-left: 2px; }
+  .topbar-sep { width: 1px; height: 20px; background: var(--bg4); flex-shrink: 0; }
+  .topbar-controls { display: flex; align-items: center; gap: 8px; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  /* ── Tab Bar ─────────────────────────────────────────── */
+  .tab-bar { display: flex; align-items: stretch; height: 36px; padding: 0 24px; background: var(--bg2); border-bottom: 1px solid var(--border); gap: 0; }
+  .tab-btn { padding: 0 16px; font-size: 12px; font-weight: 500; color: var(--text3); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-family: inherit; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+  .tab-btn:hover { color: var(--text2); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab-btn .tab-sub { font-size: 9px; font-weight: 400; opacity: 0.7; }
+
+  /* ── Shared controls ─────────────────────────────────── */
+  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); color: var(--text2); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.12s; white-space: nowrap; font-family: inherit; }
+  .btn:hover { background: var(--bg3); color: var(--text); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-ghost { border-color: transparent; background: transparent; }
+  .btn-ghost:hover { background: var(--bg3); }
+  select { padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 11px; cursor: pointer; font-family: inherit; }
+  .field { display: flex; align-items: center; gap: 5px; }
+  .field label { font-size: 11px; color: var(--text3); font-weight: 500; white-space: nowrap; }
+  .field input[type="number"] { width: 58px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 12px; text-align: center; font-family: inherit; }
+
+  /* ── App Layout ──────────────────────────────────────── */
+  .app { display: flex; flex-direction: column; height: 100vh; }
+  .main-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+  /* ── Pipeline Section (Study View) ──────────────────── */
+  .pipeline-section { padding: 28px 32px 20px; }
+  .pipeline-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .pipeline-header h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); }
+  .pipeline-canvas { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 4px 0 12px; }
+  .source-stack { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; min-width: 170px; }
+  .source-card { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: var(--radius); background: var(--bg2); border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow-sm); position: relative; }
+  .source-card::after { content: 'Edit'; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 8px; color: var(--text3); opacity: 0; transition: opacity 0.15s; font-weight: 500; }
+  .source-card:hover::after { opacity: 1; }
+  .source-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .source-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(176,78,48,0.12); }
+  .source-card.inactive { opacity: 0.3; }
+  .source-card .cat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .source-card .sc-name { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; }
+  .source-card .sc-vol { font-size: 10px; font-weight: 500; color: var(--text3); }
+  .merge-connector { display: flex; align-items: center; justify-content: center; width: 48px; flex-shrink: 0; }
+  .merge-connector svg { color: var(--text3); }
+  .stage-pipeline { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
+  .stage-card { padding: 12px 14px; border-radius: var(--radius-lg); background: var(--bg2); border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow-sm); min-width: 140px; flex-shrink: 0; }
+  .stage-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .stage-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(176,78,48,0.12); }
+  .stage-card .sc-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .stage-card .sc-stats { display: flex; gap: 8px; font-size: 10px; color: var(--text3); font-weight: 500; }
+  .stage-card .sc-stats2 { display: flex; gap: 8px; font-size: 10px; color: var(--text3); margin-top: 1px; }
+  .stage-card .util-bar { height: 3px; border-radius: 2px; background: var(--bg4); margin-top: 8px; overflow: hidden; }
+  .stage-card .util-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .terminal-card { background: var(--green-bg); border-color: rgba(45,122,80,0.25); }
+  .terminal-card .sc-name { color: var(--green); }
+  .stage-arrow { display: flex; align-items: center; justify-content: center; width: 32px; flex-shrink: 0; color: var(--bg4); }
+  .stage-arrow svg { width: 24px; height: 14px; }
+  .add-stage-pill { display: flex; align-items: center; justify-content: center; padding: 4px 10px; border-radius: 20px; border: 1px dashed var(--border); color: var(--text3); cursor: pointer; font-size: 11px; font-weight: 500; background: transparent; transition: all 0.15s; flex-shrink: 0; margin-left: 4px; font-family: inherit; }
+  .add-stage-pill:hover { border-color: var(--text3); color: var(--text2); background: var(--bg3); }
+  .source-drawer-toggle { font-size: 11px; font-weight: 500; color: var(--text3); cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius); transition: color 0.15s; border: none; background: none; font-family: inherit; }
+  .source-drawer-toggle:hover { color: var(--text2); }
+  .source-drawer { padding: 0 32px 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .source-chip { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg2); cursor: pointer; font-size: 11px; color: var(--text2); font-weight: 500; transition: all 0.15s; font-family: inherit; }
+  .source-chip:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+  .source-chip .chip-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* ── Config Panel ───────────────────────────────────── */
+  .config-overlay { position: fixed; top: 0; right: 0; bottom: 0; width: 340px; background: var(--bg2); border-left: 1px solid var(--border); z-index: 20; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
+  .config-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--bg3); }
+  .config-header h3 { font-size: 13px; font-weight: 600; }
+  .config-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: var(--radius); }
+  .config-close:hover { background: var(--bg3); color: var(--text); }
+  .config-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .cfg-group { margin-bottom: 18px; }
+  .cfg-group label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 6px; font-weight: 600; }
+  .cfg-group .slider-row { display: flex; align-items: center; gap: 10px; }
+  .cfg-group input[type="range"] { flex: 1; accent-color: var(--accent); height: 4px; }
+  .cfg-group .val { font-size: 13px; font-weight: 600; min-width: 45px; text-align: right; color: var(--text); }
+  .cfg-group input[type="text"] { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; }
+  .cfg-group input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(176,78,48,0.1); }
+  .cfg-group .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+  .cfg-group .toggle-row input { accent-color: var(--accent); }
+  .cfg-delete { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid rgba(166,61,52,0.2); border-radius: var(--radius); background: rgba(166,61,52,0.04); color: var(--red); font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit; }
+  .cfg-delete:hover { background: rgba(166,61,52,0.1); }
+  .cfg-hint { font-size: 11px; color: var(--text3); margin-top: 4px; line-height: 1.4; }
+
+  /* ── Results Section ─────────────────────────────────── */
+  .results-section { padding: 0 32px 32px; }
+  .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .results-header h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); }
+  .results-status { font-size: 12px; font-weight: 500; }
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (min-width: 1200px) { .results-grid { grid-template-columns: 1.2fr 1fr; } }
+  .result-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow-sm); }
+  .result-card h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 12px; font-weight: 600; }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .stat-tile { background: var(--bg3); border-radius: var(--radius); padding: 12px; }
+  .stat-tile .st-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .stat-tile .st-value { font-size: 20px; font-weight: 700; margin-top: 3px; letter-spacing: -0.5px; }
+  .stat-tile .st-sub { font-size: 9px; color: var(--text3); margin-top: 1px; }
+
+  /* Heatmap */
+  .heatmap { display: flex; flex-direction: column; gap: 4px; }
+  .hm-row { display: flex; align-items: center; gap: 4px; }
+  .hm-label { font-size: 10px; color: var(--text2); width: 90px; text-align: right; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .hm-cells { display: flex; gap: 2px; flex: 1; }
+  .hm-cell { flex: 1; height: 20px; border-radius: 3px; min-width: 3px; }
+  .hm-axis { display: flex; gap: 2px; margin-left: 94px; margin-top: 2px; }
+  .hm-axis span { flex: 1; font-size: 8px; color: var(--text3); text-align: center; }
+  .hm-legend { display: flex; gap: 12px; font-size: 9px; color: var(--text3); margin-bottom: 8px; font-weight: 500; }
+  .source-bars { display: flex; flex-direction: column; gap: 5px; margin-top: 16px; }
+  .sb-row { display: flex; align-items: center; gap: 8px; }
+  .sb-label { font-size: 10px; color: var(--text2); width: 80px; text-align: right; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .sb-track { flex: 1; height: 10px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+  .sb-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .sb-val { font-size: 10px; color: var(--text3); width: 32px; font-weight: 500; }
+  .cmp-legend { display: flex; gap: 14px; align-items: center; margin-bottom: 6px; font-size: 10px; color: var(--text3); font-weight: 500; }
+  .cmp-leg { display: flex; align-items: center; gap: 4px; }
+  .cmp-line { width: 16px; height: 2px; }
+  .cmp-dash { width: 16px; height: 2px; background: repeating-linear-gradient(90deg, var(--text3) 0, var(--text3) 3px, transparent 3px, transparent 6px); }
+
+  /* ── Site View ──────────────────────────────────────── */
+  .site-section { padding: 24px 32px 20px; }
+  .site-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .site-section-header h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); }
+  .site-controls { display: flex; align-items: center; gap: 8px; }
+
+  .site-table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); margin-bottom: 20px; max-height: 340px; overflow-y: auto; }
+  .site-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .site-table th { position: sticky; top: 0; background: var(--bg3); padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap; z-index: 1; }
+  .site-table th:hover { color: var(--text2); }
+  .site-table th.sorted { color: var(--accent); }
+  .site-table td { padding: 6px 10px; border-bottom: 1px solid var(--bg3); }
+  .site-table tr:hover td { background: var(--accent-bg); }
+  .site-table input[type="text"], .site-table input[type="number"] {
+    width: 100%; padding: 3px 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--text); font-size: 12px; font-family: inherit;
+  }
+  .site-table input:focus { border-color: var(--accent); background: var(--bg2); outline: none; }
+  .site-table .name-cell { min-width: 150px; }
+  .site-table .num-cell { width: 80px; text-align: center; }
+  .site-table .num-cell input { text-align: center; }
+  .site-table .act-cell { width: 50px; text-align: center; }
+  .site-table .del-cell { width: 36px; text-align: center; }
+  .site-table .del-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 4px; }
+  .site-table .del-btn:hover { background: rgba(166,61,52,0.1); color: var(--red); }
+  .site-table .add-row td { border-bottom: none; }
+  .site-table .add-btn { background: none; border: 1px dashed var(--border); color: var(--text3); cursor: pointer; font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 20px; font-family: inherit; }
+  .site-table .add-btn:hover { background: var(--bg3); color: var(--text2); border-color: var(--text3); }
+  .site-table .summary-row td { background: var(--bg3); font-weight: 600; color: var(--text2); border-bottom: none; font-size: 11px; }
+
+  /* Waterfall */
+  .wf-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .wf-label { font-size: 10px; color: var(--text2); width: 110px; text-align: right; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .wf-track { flex: 1; height: 16px; background: var(--bg4); border-radius: 3px; overflow: hidden; position: relative; }
+  .wf-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .wf-val { font-size: 10px; color: var(--text3); width: 28px; font-weight: 500; text-align: right; }
+
+  /* ── Single Site View ────────────────────────────────── */
+  .ss-section { padding: 24px 32px 20px; }
+  .ss-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .ss-header h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); }
+  .ss-identity { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .ss-identity .cfg-group { margin-bottom: 0; }
+  .ss-identity input[type="text"], .ss-identity input[type="number"] { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 12px; font-family: inherit; }
+
+  /* Gantt Chart */
+  .gantt-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow-sm); margin-bottom: 20px; }
+  .gantt-wrap h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 14px; font-weight: 600; }
+  .gantt-track { margin-bottom: 14px; }
+  .gantt-track-label { font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .gantt-track-label .gt-dot { width: 8px; height: 8px; border-radius: 2px; }
+  .gantt-row { display: flex; align-items: center; gap: 0; height: 26px; margin-bottom: 3px; position: relative; }
+  .gantt-label { font-size: 10px; color: var(--text3); width: 130px; text-align: right; padding-right: 10px; flex-shrink: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gantt-timeline { flex: 1; height: 100%; position: relative; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .gantt-bar { position: absolute; height: 100%; border-radius: 3px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; padding: 0 6px; font-size: 9px; color: #fff; font-weight: 600; overflow: hidden; white-space: nowrap; }
+  .gantt-bar:hover { opacity: 0.85; transform: scaleY(1.15); box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .gantt-fpi { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--accent); z-index: 2; }
+  .gantt-fpi-label { position: absolute; top: -16px; font-size: 9px; color: var(--accent); font-weight: 600; white-space: nowrap; transform: translateX(-50%); }
+  .gantt-axis { display: flex; margin-left: 130px; margin-top: 6px; }
+  .gantt-axis span { flex: 1; font-size: 8px; color: var(--text3); text-align: center; }
+  .gantt-edit { display: flex; gap: 6px; align-items: center; margin-top: 3px; margin-left: 130px; }
+  .gantt-edit label { font-size: 10px; color: var(--text3); font-weight: 500; }
+  .gantt-edit input { width: 40px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 3px; font-size: 10px; text-align: center; font-family: inherit; background: var(--bg2); color: var(--text); }
+
+  /* Referral Sources */
+  .ref-sources { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .ref-card { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius); background: var(--bg2); border: 1px solid var(--border); box-shadow: var(--shadow-sm); min-width: 140px; }
+  .ref-card .rc-name { font-size: 11px; font-weight: 600; color: var(--text); }
+  .ref-card .rc-vol { display: flex; align-items: center; gap: 4px; }
+  .ref-card .rc-vol input { width: 36px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 3px; font-size: 11px; text-align: center; font-family: inherit; background: var(--bg2); color: var(--text); }
+  .ref-card .rc-vol span { font-size: 10px; color: var(--text3); }
+  .ref-card .rc-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px; margin-left: auto; padding: 2px; }
+  .ref-card .rc-del:hover { color: var(--red); }
+
+  /* Capacity */
+  .capacity-row { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; }
+  .capacity-row .cap-field { display: flex; align-items: center; gap: 6px; }
+  .capacity-row .cap-field label { font-size: 10px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .capacity-row .cap-field input { width: 50px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 12px; text-align: center; font-family: inherit; background: var(--bg2); color: var(--text); }
+
+  /* Mini funnel */
+  .mini-funnel { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 4px 0 8px; margin-bottom: 16px; }
+  .mf-stage { padding: 8px 10px; border-radius: var(--radius); background: var(--bg2); border: 1px solid var(--border); box-shadow: var(--shadow-sm); min-width: 110px; flex-shrink: 0; cursor: pointer; }
+  .mf-stage.selected { border-color: var(--accent); }
+  .mf-stage .mf-name { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .mf-stage .mf-meta { font-size: 9px; color: var(--text3); }
+  .mf-arrow { display: flex; align-items: center; justify-content: center; width: 24px; flex-shrink: 0; color: var(--bg4); }
+  .mf-arrow svg { width: 18px; height: 10px; }
+  .mf-terminal { background: var(--green-bg); border-color: rgba(45,122,80,0.25); }
+  .mf-terminal .mf-name { color: var(--green); }
+
+  /* Detail button in site table */
+  .site-table .detail-cell { width: 36px; text-align: center; }
+  .site-table .detail-btn { background: none; border: 1px solid var(--border); color: var(--text3); cursor: pointer; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-family: inherit; font-weight: 500; }
+  .site-table .detail-btn:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+
+  /* ── Particle Flow Animation ─────────────────────────── */
+  .pipeline-canvas { position: relative; }
+  .particle-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 2; }
+  @keyframes particleFlow {
+    0% { transform: translateX(0); opacity: 0; }
+    5% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translateX(calc(var(--travel, 600px))); opacity: 0; }
+  }
+  .particle {
+    position: absolute; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent); opacity: 0;
+    animation: particleFlow var(--dur, 3s) linear infinite;
+    animation-delay: var(--delay, 0s);
+    box-shadow: 0 0 4px rgba(176,78,48,0.4);
+  }
+  .particle.fail {
+    background: var(--red); box-shadow: 0 0 4px rgba(166,61,52,0.3);
+    animation: particleFail var(--dur, 3s) linear infinite;
+    animation-delay: var(--delay, 0s);
+  }
+  @keyframes particleFail {
+    0% { transform: translate(var(--fail-x, 200px), 0); opacity: 0; }
+    45% { transform: translate(var(--fail-x, 200px), 0); opacity: 1; }
+    100% { transform: translate(var(--fail-x, 200px), 20px); opacity: 0; }
+  }
+
+  /* ── Speed Control ──────────────────────────────────── */
+  .speed-control { display: flex; align-items: center; gap: 6px; }
+  .speed-control label { font-size: 10px; color: var(--text3); font-weight: 500; }
+  .speed-control input[type="range"] { width: 60px; accent-color: var(--accent); height: 3px; }
+  .speed-control .speed-val { font-size: 10px; font-weight: 600; color: var(--accent); min-width: 28px; }
+
+  /* ── Animated Counter ───────────────────────────────── */
+  .counter-anim { display: inline-block; transition: transform 0.15s; }
+
+  /* ── Milestone Toast ────────────────────────────────── */
+  @keyframes milestoneIn {
+    0% { transform: translateX(-50%) scale(0.7) translateY(10px); opacity: 0; }
+    50% { transform: translateX(-50%) scale(1.05) translateY(0); opacity: 1; }
+    100% { transform: translateX(-50%) scale(1) translateY(0); opacity: 1; }
+  }
+  @keyframes milestoneOut {
+    0% { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
+    100% { opacity: 0; transform: translateX(-50%) scale(0.9) translateY(-8px); }
+  }
+  .milestone-badge {
+    position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
+    background: var(--green); color: #fff; padding: 8px 18px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; z-index: 101; box-shadow: var(--shadow-lg);
+    animation: milestoneIn 0.4s ease-out forwards;
+    letter-spacing: 0.2px;
+  }
+  .milestone-badge.exit { animation: milestoneOut 0.3s ease-in forwards; }
+  .milestone-badge .ms-pct { font-size: 14px; margin-right: 4px; }
+
+  /* ── Playback Progress Bar ──────────────────────────── */
+  .playback-bar { height: 3px; background: var(--bg4); margin: 0 32px 0; border-radius: 2px; overflow: hidden; }
+  .playback-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.08s linear; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+  /* ── Home Page ───────────────────────────────────────── */
+  .home { height: 100vh; overflow-y: auto; background: var(--bg); }
+  .home-header { display: flex; align-items: center; height: 56px; padding: 0 32px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+  .home-header .hh-brand { display: flex; align-items: center; gap: 12px; }
+  .home-header .hh-org { font-size: 12px; font-weight: 700; color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase; }
+  .home-header .hh-div { width: 1px; height: 20px; background: var(--bg4); }
+  .home-header .hh-name { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+  .home-header .hh-nav { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+  .home-header .hh-nav a { font-size: 13px; color: var(--text2); text-decoration: none; font-weight: 500; transition: color 0.15s; }
+  .home-header .hh-nav a:hover { color: var(--text); }
+  .home-header .hh-nav .hh-cta { padding: 6px 16px; border-radius: var(--radius); border: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text); background: var(--bg2); cursor: pointer; text-decoration: none; transition: all 0.15s; }
+  .home-header .hh-nav .hh-cta:hover { background: var(--bg3); border-color: var(--text3); }
+  .home-hero { background: linear-gradient(135deg, #2c2420 0%, #4a3028 40%, #6b4535 100%); color: #fff; padding: 80px 40px 60px; text-align: center; position: relative; overflow: hidden; }
+  .home-hero::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 80px; background: linear-gradient(to top, var(--bg), transparent); }
+  .home-hero .hero-badge { display: inline-flex; align-items: center; padding: 4px 14px; border-radius: 20px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); font-size: 11px; font-weight: 500; margin-bottom: 20px; letter-spacing: 0.3px; }
+  .home-hero h1 { font-size: 42px; font-weight: 700; letter-spacing: -1px; margin-bottom: 12px; }
+  .home-hero .hero-sub { font-size: 16px; opacity: 0.8; max-width: 600px; margin: 0 auto 32px; line-height: 1.6; font-weight: 400; }
+  .home-hero .hero-cta { display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; border: none; cursor: pointer; font-family: inherit; transition: background 0.15s; box-shadow: 0 4px 16px rgba(176,78,48,0.3); }
+  .home-hero .hero-cta:hover { background: var(--accent2); }
+  .home-hero .hero-sec { display: inline-flex; align-items: center; gap: 6px; padding: 12px 24px; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.8); font-size: 13px; font-weight: 500; border: 1px solid rgba(255,255,255,0.25); cursor: pointer; font-family: inherit; margin-left: 12px; transition: all 0.15s; }
+  .home-hero .hero-sec:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .home-stats-bar { display: flex; justify-content: center; gap: 40px; padding: 24px 40px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+  .home-stats-bar .hs { text-align: center; }
+  .home-stats-bar .hs-num { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .home-stats-bar .hs-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-top: 2px; }
+  .home-section { max-width: 1000px; margin: 0 auto; padding: 48px 40px; }
+  .home-section h2 { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 8px; letter-spacing: -0.3px; text-align: center; }
+  .home-section .hs-sub { font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 32px; line-height: 1.6; }
+  .home-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .home-feat { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
+  .home-feat .hf-icon { font-size: 24px; margin-bottom: 10px; }
+  .home-feat h3 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .home-feat p { font-size: 11px; color: var(--text2); line-height: 1.6; }
+  .home-views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .home-view { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; text-align: center; }
+  .home-view .hv-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .home-view h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .home-view .hv-when { font-size: 9px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .home-view p { font-size: 11px; color: var(--text2); line-height: 1.6; }
+  .home-how { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .home-how-step { text-align: center; padding: 20px 16px; }
+  .home-how-step .hhs-num { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg3); color: var(--text2); font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+  .home-how-step h4 { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .home-how-step p { font-size: 10px; color: var(--text3); line-height: 1.5; }
+  .home-cta-section { text-align: center; padding: 48px 40px; background: var(--bg3); border-top: 1px solid var(--border); }
+  .home-cta-section h2 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .home-cta-section p { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
+
+  /* ── Tutorial Tab ────────────────────────────────────── */
+  .tab-btn.tab-tutorial { color: var(--green); }
+  .tab-btn.tab-tutorial.active { color: var(--green); border-bottom-color: var(--green); }
+  .tutorial-page { padding: 32px; max-width: 900px; margin: 0 auto; }
+  .tutorial-page h2 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 6px; letter-spacing: -0.3px; }
+  .tutorial-page .tp-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; line-height: 1.5; }
+  .tutorial-page h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 32px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .tutorial-page h3 .step-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .tutorial-page p { font-size: 12px; color: var(--text2); line-height: 1.7; margin-bottom: 12px; }
+  .tutorial-page .tip { background: var(--accent-bg); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 var(--radius) var(--radius) 0; font-size: 11px; color: var(--text2); line-height: 1.6; margin: 12px 0; }
+  .tutorial-page .tip strong { color: var(--accent); }
+  .tutorial-page .concept-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .tutorial-page .concept-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+  .tutorial-page .concept-card h4 { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .tutorial-page .concept-card h4 .cc-icon { font-size: 16px; }
+  .tutorial-page .concept-card p { font-size: 11px; margin-bottom: 0; }
+  .tutorial-page .view-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .tutorial-page .view-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; cursor: pointer; transition: all 0.15s; }
+  .tutorial-page .view-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .tutorial-page .view-card h4 { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+  .tutorial-page .view-card .vc-when { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .tutorial-page .view-card p { font-size: 11px; margin-bottom: 8px; }
+  .tutorial-page .view-card .vc-try { font-size: 10px; color: var(--accent); font-weight: 600; }
+  .tutorial-page .key-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 11px; }
+  .tutorial-page .key-table th { text-align: left; padding: 6px 10px; background: var(--bg3); color: var(--text3); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tutorial-page .key-table td { padding: 6px 10px; border-bottom: 1px solid var(--bg3); color: var(--text2); }
+  .tutorial-page .key-table td:first-child { font-weight: 600; color: var(--text); }
+  .tutorial-page hr { border: none; border-top: 1px solid var(--bg4); margin: 28px 0; }
+
+  /* ── Template Cards ──────────────────────────────────── */
+  .template-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 32px 0; }
+  .template-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow-sm); }
+  .template-card:hover { box-shadow: var(--shadow-md); border-color: var(--accent); transform: translateY(-1px); }
+  .template-card.tc-active { border-color: var(--accent); background: var(--accent-bg); }
+  .template-card .tc-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .template-card .tc-desc { font-size: 10px; color: var(--text3); line-height: 1.4; }
+  .template-card .tc-stats { display: flex; gap: 8px; margin-top: 8px; font-size: 9px; color: var(--text2); font-weight: 500; }
+  .template-card .tc-stat { background: var(--bg3); padding: 2px 6px; border-radius: 3px; }
+
+  /* ── Welcome Banner ──────────────────────────────────── */
+  .welcome-banner { background: var(--accent-bg); border: 1px solid rgba(176,78,48,0.15); border-radius: var(--radius-lg); padding: 14px 20px; margin: 16px 32px 0; display: flex; align-items: flex-start; gap: 12px; }
+  .welcome-banner .wb-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .welcome-banner .wb-text { flex: 1; }
+  .welcome-banner .wb-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .welcome-banner .wb-desc { font-size: 11px; color: var(--text2); line-height: 1.5; }
+  .welcome-banner .wb-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 2px 6px; flex-shrink: 0; }
+  .welcome-banner .wb-close:hover { color: var(--text); }
+
+  /* ── Benchmark Hint ─────────────────────────────────── */
+  .bench-hint { font-size: 8px; color: var(--text3); margin-top: 2px; font-weight: 400; font-style: italic; }
+
+  /* ── Save Reminder ──────────────────────────────────── */
+  .save-reminder { display: flex; align-items: center; gap: 6px; padding: 4px 12px; background: rgba(176,78,48,0.06); border: 1px solid rgba(176,78,48,0.15); border-radius: 20px; font-size: 10px; color: var(--accent); font-weight: 500; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg2); padding: 8px 20px; border-radius: var(--radius); font-size: 12px; font-weight: 500; z-index: 100; box-shadow: var(--shadow-lg); }
+  .footer { padding: 20px 32px; border-top: 1px solid var(--bg3); }
+  .footer-inner { max-width: 900px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+  .footer-org { font-size: 11px; font-weight: 600; color: var(--text2); }
+  .footer-links { display: flex; gap: 16px; }
+  .footer-links a { font-size: 10px; color: var(--text3); text-decoration: none; font-weight: 500; }
+  .footer-links a:hover { color: var(--text2); text-decoration: underline; }
+  .footer-copy { text-align: center; font-size: 9px; color: var(--text3); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bg3); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useCallback, useMemo, useEffect, useRef } = React;
+const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip: RTooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell } = Recharts;
+
+// ═══════════════════════════════════════════════════════════════════════
+// DATA & TEMPLATES
+// ═══════════════════════════════════════════════════════════════════════
+const ALL_SOURCES = [
+  { id: 'site_db', name: 'Site Database', category: 'clinical', volume: 15, rampUpWeeks: 2, costPerPatient: 200 },
+  { id: 'physician_ref', name: 'Physician Referral', category: 'clinical', volume: 8, rampUpWeeks: 4, costPerPatient: 350 },
+  { id: 'ehr_screening', name: 'EHR/EMR Screening', category: 'clinical', volume: 20, rampUpWeeks: 3, costPerPatient: 150 },
+  { id: 'digital_ads', name: 'Digital Advertising', category: 'digital', volume: 25, rampUpWeeks: 2, costPerPatient: 500 },
+  { id: 'patient_advocacy', name: 'Patient Advocacy', category: 'digital', volume: 5, rampUpWeeks: 6, costPerPatient: 100 },
+  { id: 'trial_listings', name: 'Trial Listing Sites', category: 'digital', volume: 10, rampUpWeeks: 1, costPerPatient: 300 },
+  { id: 'agentic_outreach', name: 'Agentic Outreach', category: 'agentic', volume: 30, rampUpWeeks: 1, costPerPatient: 80 },
+  { id: 'ai_prescreen', name: 'AI Pre-screening', category: 'agentic', volume: 15, rampUpWeeks: 2, costPerPatient: 60 },
+  { id: 'auto_reengage', name: 'Auto Re-engagement', category: 'agentic', volume: 10, rampUpWeeks: 3, costPerPatient: 40 },
+];
+const CAT_COLORS = { clinical: '#3e73a8', digital: '#6e5494', agentic: '#2e7370' };
+const CAT_LABELS = { clinical: 'Clinical', digital: 'Digital', agentic: 'Agentic / AI' };
+
+const TEMPLATES = {
+  phase1: { name: 'Phase 1', desc: 'First-in-human, N=30, 6 sites', targetN: 30, numSites: 6,
+    sources: ['site_db', 'physician_ref', 'ehr_screening'],
+    stages: [
+      { id: 's1', name: 'Identified', conversionRate: 60, throughputPerWeek: 50, avgDurationDays: 3, dropoutRate: 2 },
+      { id: 's2', name: 'Pre-screened', conversionRate: 50, throughputPerWeek: 30, avgDurationDays: 7, dropoutRate: 3 },
+      { id: 's3', name: 'Consented', conversionRate: 80, throughputPerWeek: 20, avgDurationDays: 5, dropoutRate: 1 },
+      { id: 's4', name: 'Screened', conversionRate: 25, throughputPerWeek: 15, avgDurationDays: 14, dropoutRate: 2 },
+      { id: 'terminal', name: 'Dosed', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+    ] },
+  phase23: { name: 'Phase 2/3', desc: 'Pivotal trial, N=300, 40 sites', targetN: 300, numSites: 40,
+    sources: ['site_db', 'physician_ref', 'ehr_screening', 'digital_ads', 'patient_advocacy', 'trial_listings'],
+    stages: [
+      { id: 's1', name: 'Identified', conversionRate: 50, throughputPerWeek: 200, avgDurationDays: 3, dropoutRate: 2 },
+      { id: 's2', name: 'Pre-screened', conversionRate: 70, throughputPerWeek: 120, avgDurationDays: 7, dropoutRate: 3 },
+      { id: 's3', name: 'Consented', conversionRate: 80, throughputPerWeek: 100, avgDurationDays: 5, dropoutRate: 2 },
+      { id: 's4', name: 'Screened', conversionRate: 60, throughputPerWeek: 80, avgDurationDays: 14, dropoutRate: 3 },
+      { id: 'terminal', name: 'Randomized', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+    ] },
+  rare: { name: 'Rare Disease', desc: 'Small population, N=80, 25 sites', targetN: 80, numSites: 25,
+    sources: ['patient_advocacy', 'physician_ref', 'agentic_outreach', 'ai_prescreen'],
+    stages: [
+      { id: 's1', name: 'Identified', conversionRate: 40, throughputPerWeek: 30, avgDurationDays: 5, dropoutRate: 1 },
+      { id: 's2', name: 'Genetic Screen', conversionRate: 35, throughputPerWeek: 20, avgDurationDays: 21, dropoutRate: 5 },
+      { id: 's3', name: 'Consented', conversionRate: 90, throughputPerWeek: 15, avgDurationDays: 7, dropoutRate: 2 },
+      { id: 's4', name: 'Screened', conversionRate: 70, throughputPerWeek: 12, avgDurationDays: 14, dropoutRate: 3 },
+      { id: 'terminal', name: 'Enrolled', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+    ] },
+  decentralized: { name: 'Decentralized / Hybrid', desc: 'Remote-first, N=500, 60 sites', targetN: 500, numSites: 60,
+    sources: ['digital_ads', 'trial_listings', 'agentic_outreach', 'ai_prescreen', 'auto_reengage', 'site_db'],
+    stages: [
+      { id: 's1', name: 'Identified', conversionRate: 55, throughputPerWeek: 300, avgDurationDays: 2, dropoutRate: 3 },
+      { id: 's2', name: 'Digital Pre-screen', conversionRate: 65, throughputPerWeek: 200, avgDurationDays: 3, dropoutRate: 4 },
+      { id: 's3', name: 'eConsent', conversionRate: 75, throughputPerWeek: 180, avgDurationDays: 2, dropoutRate: 2 },
+      { id: 's4', name: 'Remote Screen', conversionRate: 55, throughputPerWeek: 120, avgDurationDays: 10, dropoutRate: 3 },
+      { id: 'terminal', name: 'Randomized', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+    ] },
+};
+
+// ─── Site Scenario Templates ─────────────────────────────────────────
+const SITE_NAMES_POOL = [
+  'Memorial Sloan Kettering','MD Anderson Cancer Center','Johns Hopkins Hospital','Mayo Clinic Rochester',
+  'Cleveland Clinic','Massachusetts General','Stanford Medical Center','Cedars-Sinai Medical Center',
+  'UCSF Medical Center','NYU Langone Health','Duke University Medical','Brigham and Women\'s',
+  'Northwestern Memorial','Mount Sinai Hospital','UCLA Medical Center','Emory University Hospital',
+  'Vanderbilt University Medical','University of Michigan Health','Penn Medicine','Columbia University Medical',
+  'Rush University Medical','Baylor Scott & White','Houston Methodist','University of Chicago Medicine',
+  'Oregon Health & Science University','University of Colorado Hospital','Beth Israel Deaconess',
+  'University of Pittsburgh Medical','Thomas Jefferson University Hospital','Moffitt Cancer Center',
+  'City of Hope','Fox Chase Cancer Center','Roswell Park Cancer Institute','Huntsman Cancer Institute',
+  'Winship Cancer Institute','Abramson Cancer Center','Siteman Cancer Center','Kimmel Cancer Center',
+  'Lurie Comprehensive Cancer','O\'Neal Comprehensive Cancer','Moores Cancer Center',
+  'University of Virginia Health','Froedtert Hospital','Medical University of South Carolina',
+  'UC Davis Medical Center','University of Iowa Hospitals','University of Kansas Medical Center',
+  'Wake Forest Baptist Medical','Dartmouth-Hitchcock Medical','Henry Ford Health','Intermountain Medical',
+  'Scripps Clinic La Jolla','Providence Portland Medical','Swedish Medical Center','Northwell Health',
+  'Geisinger Medical Center','Ochsner Medical Center','Baptist Health Jacksonville','Atrium Health Carolinas',
+  'AdventHealth Orlando','SSM Health Saint Louis University','Loyola University Medical','Hackensack Meridian',
+  'ChristianaCare','MaineHealth','Hartford HealthCare','Spectrum Health Grand Rapids',
+  'Mercy Hospital Springfield','Carilion Clinic','Prisma Health','WellSpan York Hospital',
+  'MultiCare Health Tacoma','Sentara Norfolk General','BJC HealthCare','Bon Secours Mercy Health',
+  'Community Health Network Indianapolis','Tufts Medical Center','George Washington University Hospital',
+  'Lenox Hill Hospital','NYP/Weill Cornell Medical','Montefiore Medical Center',
+];
+
+function generateSites(count, rateRange, activationSpread) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `site_${i}`,
+    name: SITE_NAMES_POOL[i % SITE_NAMES_POOL.length] + (i >= SITE_NAMES_POOL.length ? ` (${Math.floor(i / SITE_NAMES_POOL.length) + 1})` : ''),
+    enrollmentRate: +(rateRange[0] + Math.random() * (rateRange[1] - rateRange[0])).toFixed(1),
+    activationWeek: Math.max(1, Math.round(1 + Math.random() * activationSpread)),
+    screenFailRate: Math.round(25 + Math.random() * 25),
+    dropoutRate: Math.round(1 + Math.random() * 5),
+    cap: null,
+    active: true,
+  }));
+}
+
+const SITE_SCENARIOS = {
+  small: { name: 'Small (Phase 1)', desc: '6 sites, staggered over 4 weeks', generate: () => generateSites(6, [0.5, 2.0], 4) },
+  medium: { name: 'Medium (Phase 2/3)', desc: '40 sites, staggered over 8 weeks', generate: () => generateSites(40, [0.5, 4.0], 8) },
+  large: { name: 'Large (Global)', desc: '80 sites, staggered over 12 weeks', generate: () => generateSites(80, [0.3, 3.0], 12) },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// SIMULATION ENGINES
+// ═══════════════════════════════════════════════════════════════════════
+
+// Study-level simulation (unchanged)
+function simulate(sources, stages, targetN, maxWeeks = 104) {
+  const timeline = [], stageQueues = stages.map(() => 0), stageUtilization = stages.map(() => []);
+  let totalEnrolled = 0;
+  const sourceContrib = {};
+  sources.forEach(s => { if (s.active !== false) sourceContrib[s.id] = 0; });
+  for (let week = 0; week < maxWeeks && totalEnrolled < targetN; week++) {
+    let weeklyInflow = 0;
+    sources.forEach(s => {
+      if (s.active === false) return;
+      const vol = Math.round(s.volume * Math.min(1, (week + 1) / (s.rampUpWeeks || 1)));
+      weeklyInflow += vol;
+      sourceContrib[s.id] = (sourceContrib[s.id] || 0) + vol;
+    });
+    stageQueues[0] += weeklyInflow;
+    for (let i = 0; i < stages.length; i++) {
+      const stage = stages[i], queue = stageQueues[i];
+      const processed = Math.min(queue, stage.throughputPerWeek);
+      stageUtilization[i].push(Math.min(stage.throughputPerWeek > 0 ? queue / stage.throughputPerWeek : 0, 2));
+      const advanced = Math.round(Math.round(processed * (1 - (stage.dropoutRate || 0) / 100)) * (stage.conversionRate / 100));
+      stageQueues[i] = queue - processed;
+      if (i < stages.length - 1) stageQueues[i + 1] += advanced;
+      else totalEnrolled += Math.min(advanced, targetN - totalEnrolled);
+    }
+    timeline.push({ week: week + 1, enrolled: totalEnrolled, weeklyInflow, queues: [...stageQueues] });
+  }
+  const totalSrc = Object.values(sourceContrib).reduce((a, b) => a + b, 0) || 1;
+  const sourcePercents = {}; Object.entries(sourceContrib).forEach(([id, v]) => { sourcePercents[id] = Math.round((v / totalSrc) * 100); });
+  const totalIdentified = timeline.reduce((a, t) => a + t.weeklyInflow, 0);
+  let totalCost = 0; sources.forEach(s => { if (s.active !== false) totalCost += (sourceContrib[s.id] || 0) * (s.costPerPatient || 0); });
+  return {
+    timeline, stageUtilization, sourcePercents, totalEnrolled,
+    weeksToTarget: totalEnrolled >= targetN ? timeline.length : null,
+    avgEnrollPerWeek: timeline.length > 0 ? (totalEnrolled / timeline.length).toFixed(1) : 0,
+    screenFailRate: totalIdentified > 0 ? Math.round((1 - totalEnrolled / totalIdentified) * 100) : 0,
+    costPerEnrolled: totalEnrolled > 0 ? Math.round(totalCost / totalEnrolled) : 0,
+    totalCost,
+  };
+}
+
+// Site-level simulation
+function simulateSites(sites, targetN, maxWeeks = 104) {
+  const timeline = [];
+  let totalEnrolled = 0;
+  const perSiteTotal = {};
+  sites.forEach(s => { perSiteTotal[s.id] = 0; });
+
+  for (let week = 0; week < maxWeeks && totalEnrolled < targetN; week++) {
+    let weeklyNew = 0;
+    const perSiteWeek = {};
+    sites.forEach(s => {
+      if (!s.active || (week + 1) < s.activationWeek) return;
+      if (s.cap && perSiteTotal[s.id] >= s.cap) return;
+      const screened = s.enrollmentRate;
+      const passScreen = screened * (1 - (s.screenFailRate || 0) / 100);
+      const enrolled = passScreen * (1 - (s.dropoutRate || 0) / 100);
+      let actual = Math.min(enrolled, targetN - totalEnrolled);
+      if (s.cap) actual = Math.min(actual, s.cap - perSiteTotal[s.id]);
+      actual = Math.max(0, +actual.toFixed(2));
+      perSiteTotal[s.id] += actual;
+      weeklyNew += actual;
+      perSiteWeek[s.id] = actual;
+    });
+    totalEnrolled += weeklyNew;
+    timeline.push({ week: week + 1, enrolled: Math.round(totalEnrolled), weeklyNew: +weeklyNew.toFixed(1), perSiteWeek });
+  }
+
+  const activeSites = sites.filter(s => s.active);
+  const totalScreened = activeSites.reduce((a, s) => {
+    const weeksActive = Math.max(0, timeline.length - s.activationWeek + 1);
+    return a + s.enrollmentRate * weeksActive;
+  }, 0);
+  const avgSF = activeSites.length > 0 ? Math.round(activeSites.reduce((a, s) => a + s.screenFailRate, 0) / activeSites.length) : 0;
+
+  return {
+    timeline,
+    perSiteTotal,
+    totalEnrolled: Math.round(totalEnrolled),
+    weeksToTarget: totalEnrolled >= targetN ? timeline.length : null,
+    avgEnrollPerWeek: timeline.length > 0 ? (totalEnrolled / timeline.length).toFixed(1) : 0,
+    screenFailRate: avgSF,
+    activeSiteCount: activeSites.length,
+  };
+}
+
+// ─── Single-Site Templates ───────────────────────────────────────────
+const SS_TEMPLATES = {
+  academic: { name: 'Academic Medical Center', desc: 'Long IRB, complex contracts, high volume',
+    identity: { name: 'Academic Medical Center', piName: 'Dr. Smith', coordinatorCount: 3 },
+    startup: {
+      regulatory: [{ id: 'r1', name: 'IRB Submission', startWeek: 1, durationWeeks: 2 }, { id: 'r2', name: 'IRB Review & Approval', startWeek: 3, durationWeeks: 6 }, { id: 'r3', name: 'Regulatory Close-out', startWeek: 9, durationWeeks: 1 }],
+      legal: [{ id: 'l1', name: 'CDA / NDA', startWeek: 1, durationWeeks: 2 }, { id: 'l2', name: 'Site Contract', startWeek: 2, durationWeeks: 5 }, { id: 'l3', name: 'Budget Negotiation', startWeek: 3, durationWeeks: 5 }],
+      operational: [{ id: 'o1', name: 'Equipment & Supplies', startWeek: 5, durationWeeks: 3 }, { id: 'o2', name: 'Staff Training', startWeek: 7, durationWeeks: 2 }, { id: 'o3', name: 'Site Initiation Visit', startWeek: 9, durationWeeks: 1 }],
+    },
+    referrals: [{ id: 'ref1', name: 'Physician Referral', volumePerWeek: 4 }, { id: 'ref2', name: 'EHR Screening', volumePerWeek: 6 }, { id: 'ref3', name: 'Self-referral', volumePerWeek: 1 }],
+    funnel: [
+      { id: 'f1', name: 'Pre-screened', conversionRate: 55, durationDays: 5, dropoutRate: 2 },
+      { id: 'f2', name: 'Consented', conversionRate: 75, durationDays: 7, dropoutRate: 2 },
+      { id: 'f3', name: 'Screened', conversionRate: 45, durationDays: 14, dropoutRate: 3 },
+      { id: 'ft', name: 'Randomized', conversionRate: 100, durationDays: 0, dropoutRate: 0 },
+    ],
+    maxConcurrent: 20, targetN: 15,
+  },
+  community: { name: 'Community Hospital', desc: 'Moderate timelines, mid volume',
+    identity: { name: 'Community Hospital', piName: 'Dr. Jones', coordinatorCount: 2 },
+    startup: {
+      regulatory: [{ id: 'r1', name: 'IRB Submission', startWeek: 1, durationWeeks: 1 }, { id: 'r2', name: 'IRB Review & Approval', startWeek: 2, durationWeeks: 4 }, { id: 'r3', name: 'Regulatory Close-out', startWeek: 6, durationWeeks: 1 }],
+      legal: [{ id: 'l1', name: 'CDA / NDA', startWeek: 1, durationWeeks: 1 }, { id: 'l2', name: 'Site Contract', startWeek: 2, durationWeeks: 3 }, { id: 'l3', name: 'Budget Negotiation', startWeek: 2, durationWeeks: 3 }],
+      operational: [{ id: 'o1', name: 'Equipment & Supplies', startWeek: 3, durationWeeks: 2 }, { id: 'o2', name: 'Staff Training', startWeek: 5, durationWeeks: 1 }, { id: 'o3', name: 'Site Initiation Visit', startWeek: 6, durationWeeks: 1 }],
+    },
+    referrals: [{ id: 'ref1', name: 'Physician Referral', volumePerWeek: 3 }, { id: 'ref2', name: 'EHR Screening', volumePerWeek: 3 }, { id: 'ref3', name: 'Self-referral', volumePerWeek: 1 }],
+    funnel: [
+      { id: 'f1', name: 'Pre-screened', conversionRate: 60, durationDays: 5, dropoutRate: 2 },
+      { id: 'f2', name: 'Consented', conversionRate: 80, durationDays: 5, dropoutRate: 1 },
+      { id: 'f3', name: 'Screened', conversionRate: 55, durationDays: 10, dropoutRate: 2 },
+      { id: 'ft', name: 'Randomized', conversionRate: 100, durationDays: 0, dropoutRate: 0 },
+    ],
+    maxConcurrent: 12, targetN: 10,
+  },
+  research: { name: 'Dedicated Research Site', desc: 'Fast startup, high volume, low screen fail',
+    identity: { name: 'Dedicated Research Center', piName: 'Dr. Chen', coordinatorCount: 4 },
+    startup: {
+      regulatory: [{ id: 'r1', name: 'IRB Submission', startWeek: 1, durationWeeks: 1 }, { id: 'r2', name: 'IRB Review & Approval', startWeek: 2, durationWeeks: 2 }, { id: 'r3', name: 'Regulatory Close-out', startWeek: 4, durationWeeks: 1 }],
+      legal: [{ id: 'l1', name: 'CDA / NDA', startWeek: 1, durationWeeks: 1 }, { id: 'l2', name: 'Site Contract', startWeek: 1, durationWeeks: 3 }, { id: 'l3', name: 'Budget Negotiation', startWeek: 2, durationWeeks: 2 }],
+      operational: [{ id: 'o1', name: 'Equipment & Supplies', startWeek: 2, durationWeeks: 2 }, { id: 'o2', name: 'Staff Training', startWeek: 3, durationWeeks: 1 }, { id: 'o3', name: 'Site Initiation Visit', startWeek: 4, durationWeeks: 1 }],
+    },
+    referrals: [{ id: 'ref1', name: 'Physician Referral', volumePerWeek: 5 }, { id: 'ref2', name: 'EHR Screening', volumePerWeek: 8 }, { id: 'ref3', name: 'Database Mining', volumePerWeek: 4 }, { id: 'ref4', name: 'Self-referral', volumePerWeek: 2 }],
+    funnel: [
+      { id: 'f1', name: 'Pre-screened', conversionRate: 70, durationDays: 3, dropoutRate: 1 },
+      { id: 'f2', name: 'Consented', conversionRate: 85, durationDays: 5, dropoutRate: 1 },
+      { id: 'f3', name: 'Screened', conversionRate: 65, durationDays: 7, dropoutRate: 2 },
+      { id: 'ft', name: 'Randomized', conversionRate: 100, durationDays: 0, dropoutRate: 0 },
+    ],
+    maxConcurrent: 25, targetN: 20,
+  },
+};
+
+const TRACK_COLORS = { regulatory: '#3e73a8', legal: '#b07d20', operational: '#2d7a50' };
+const TRACK_LABELS = { regulatory: 'Regulatory', legal: 'Legal', operational: 'Operational' };
+
+// ─── Single-Site Simulation ──────────────────────────────────────────
+function computeFPI(startup) {
+  let maxEnd = 0;
+  Object.values(startup).forEach(track => {
+    track.forEach(m => { maxEnd = Math.max(maxEnd, m.startWeek + m.durationWeeks); });
+  });
+  return maxEnd + 1;
+}
+
+function simulateSingleSite(config, maxWeeks = 104) {
+  const fpi = computeFPI(config.startup);
+  const targetN = config.targetN || 20;
+  const timeline = [];
+  let totalEnrolled = 0, concurrent = 0;
+  const totalRefVol = config.referrals.reduce((a, r) => a + r.volumePerWeek, 0);
+
+  for (let week = 0; week < maxWeeks; week++) {
+    if (totalEnrolled >= targetN) break;
+    const weekNum = week + 1;
+    let weeklyEnrolled = 0;
+    if (weekNum >= fpi) {
+      let candidates = totalRefVol;
+      for (const stage of config.funnel) {
+        if (stage.conversionRate >= 100) break;
+        candidates = candidates * (stage.conversionRate / 100) * (1 - (stage.dropoutRate || 0) / 100);
+      }
+      // Coordinator FTEs scale effective capacity: ~8 concurrent patients per coordinator
+      const effCapacity = config.coordinatorFTEs ? Math.min(config.maxConcurrent || 999, config.coordinatorFTEs * 8) : (config.maxConcurrent || 999);
+      const capacityLeft = Math.max(0, effCapacity - concurrent);
+      weeklyEnrolled = Math.min(candidates, capacityLeft, targetN - totalEnrolled);
+      weeklyEnrolled = Math.max(0, +weeklyEnrolled.toFixed(2));
+      totalEnrolled += weeklyEnrolled;
+      concurrent = Math.min(concurrent + weeklyEnrolled, config.maxConcurrent || 999);
+      // Simple concurrent decay — patients leave after ~8 weeks on average
+      if (concurrent > weeklyEnrolled) concurrent = Math.max(weeklyEnrolled, concurrent * 0.88);
+    }
+    timeline.push({ week: weekNum, enrolled: Math.round(totalEnrolled), weeklyNew: +weeklyEnrolled.toFixed(1), phase: weekNum < fpi ? 'startup' : 'enrollment' });
+  }
+
+  const enrollWeeks = timeline.filter(t => t.phase === 'enrollment');
+  const overallSF = config.funnel.reduce((acc, s) => s.conversionRate < 100 ? acc * (s.conversionRate / 100) : acc, 1);
+  return {
+    timeline, fpi, totalEnrolled: Math.round(totalEnrolled), targetN,
+    weeksToTarget: totalEnrolled >= targetN ? timeline.length : null,
+    avgEnrollPerWeek: enrollWeeks.length > 0 ? (totalEnrolled / enrollWeeks.length).toFixed(1) : 0,
+    screenFailRate: Math.round((1 - overallSF) * 100),
+    effectiveRate: +(totalRefVol * overallSF).toFixed(1),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SHARED COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════
+
+function ArrowSVG() {
+  return <svg viewBox="0 0 24 14" fill="none"><path d="M0 7H20M20 7L15 2M20 7L15 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
+
+function heatColor(v) {
+  if (v > 1.2) return 'rgba(166,61,52,0.6)';
+  if (v > 0.8) return 'rgba(176,125,32,0.5)';
+  if (v > 0.5) return 'rgba(176,125,32,0.22)';
+  if (v > 0.2) return 'rgba(45,122,80,0.22)';
+  return 'rgba(45,122,80,0.08)';
+}
+
+// ─── Animated Counter Component ──────────────────────────────────────
+function AnimCounter({ value, prefix = '', suffix = '', duration = 600 }) {
+  const [display, setDisplay] = useState(value);
+  const prevRef = useRef(null);
+  const animRef2 = useRef(null);
+  useEffect(() => {
+    const to = typeof value === 'number' ? value : parseFloat(value) || 0;
+    if (prevRef.current === null) { prevRef.current = to; setDisplay(value); return; } // skip animation on first render
+    const from = prevRef.current;
+    if (from === to) { setDisplay(value); return; }
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      const current = from + (to - from) * eased;
+      setDisplay(typeof value === 'number' ? Math.round(current) : current.toFixed(1));
+      if (t < 1) animRef2.current = requestAnimationFrame(step);
+    };
+    animRef2.current = requestAnimationFrame(step);
+    prevRef.current = to;
+    return () => { if (animRef2.current) cancelAnimationFrame(animRef2.current); };
+  }, [value, duration]);
+  return <span className="counter-anim">{prefix}{typeof display === 'number' ? display.toLocaleString() : display}{suffix}</span>;
+}
+
+// ─── Particle Flow Component ─────────────────────────────────────────
+function ParticleFlow({ isPlaying, stageCount, sourceCount }) {
+  if (!isPlaying) return null;
+  const particles = [];
+  const totalStages = stageCount + 1; // +1 for merge zone
+  const travelPx = totalStages * 172; // approx px per stage+arrow
+  for (let i = 0; i < Math.min(sourceCount * 3, 18); i++) {
+    const yBase = 10 + (i % sourceCount) * 36;
+    const delay = (Math.random() * 2.5).toFixed(2);
+    const dur = (2.5 + Math.random() * 1.5).toFixed(2);
+    const yJitter = Math.round(Math.random() * 8 - 4);
+    particles.push(
+      <div key={`p${i}`} className="particle" style={{
+        left: 170, top: yBase + yJitter,
+        '--travel': `${travelPx}px`, '--delay': `${delay}s`, '--dur': `${dur}s`,
+      }} />
+    );
+  }
+  // A few fail particles that drop out mid-pipeline
+  for (let i = 0; i < Math.min(stageCount, 4); i++) {
+    const failX = 220 + i * 172;
+    particles.push(
+      <div key={`f${i}`} className="particle fail" style={{
+        left: 0, top: 50 + Math.random() * 20,
+        '--fail-x': `${failX}px`, '--delay': `${(1 + Math.random() * 2).toFixed(2)}s`, '--dur': '3s',
+      }} />
+    );
+  }
+  return <div className="particle-layer">{particles}</div>;
+}
+
+// ─── Milestone Badge Component ───────────────────────────────────────
+function MilestoneBadge({ milestone }) {
+  const [show, setShow] = useState(true);
+  const [exiting, setExiting] = useState(false);
+  useEffect(() => {
+    setShow(true); setExiting(false);
+    const t1 = setTimeout(() => setExiting(true), 1800);
+    const t2 = setTimeout(() => setShow(false), 2100);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [milestone]);
+  if (!show || !milestone) return null;
+  return (
+    <div className={`milestone-badge ${exiting ? 'exit' : ''}`}>
+      <span className="ms-pct">{milestone.pct}%</span> enrolled {'\u2014'} Week {milestone.week}
+    </div>
+  );
+}
+
+// ─── Gantt Chart Component ───────────────────────────────────────────
+function GanttChart({ startup, onChange, fpi }) {
+  const maxWeek = Math.max(fpi + 2, 16);
+  const [editing, setEditing] = useState(null); // { track, idx }
+  const prevStartupRef = useRef(startup);
+  useEffect(() => { if (startup !== prevStartupRef.current) { setEditing(null); prevStartupRef.current = startup; } }, [startup]);
+
+  const updateMilestone = (track, idx, field, val) => {
+    const newStartup = { ...startup };
+    const updated = startup[track].map((m, i) => i === idx ? { ...m, [field]: Math.max(1, +val || 1) } : { ...m });
+    // Auto-cascade: each milestone starts after the previous one ends
+    for (let i = 1; i < updated.length; i++) {
+      const prevEnd = updated[i - 1].startWeek + updated[i - 1].durationWeeks;
+      if (updated[i].startWeek < prevEnd) updated[i].startWeek = prevEnd;
+    }
+    newStartup[track] = updated;
+    onChange(newStartup);
+  };
+
+  return (
+    <div className="gantt-wrap">
+      <h4>Startup Timeline <span style={{ float: 'right', fontSize: 9, fontWeight: 500, color: 'var(--accent)' }}>FPI: Week {fpi}</span></h4>
+      <div style={{ fontSize: 9, color: 'var(--text3)', marginBottom: 10, marginTop: -8 }}>Click any bar to edit its start week and duration</div>
+      {Object.entries(startup).map(([track, milestones]) => (
+        <div key={track} className="gantt-track">
+          <div className="gantt-track-label"><div className="gt-dot" style={{ background: TRACK_COLORS[track] }} />{TRACK_LABELS[track]}</div>
+          {milestones.map((m, idx) => {
+            const left = ((m.startWeek - 1) / maxWeek) * 100;
+            const width = (m.durationWeeks / maxWeek) * 100;
+            return (
+              <div key={m.id}>
+                <div className="gantt-row">
+                  <div className="gantt-label">{m.name}</div>
+                  <div className="gantt-timeline">
+                    <div className="gantt-bar" style={{ left: `${left}%`, width: `${width}%`, background: TRACK_COLORS[track] }}
+                      onClick={() => setEditing(editing?.track === track && editing?.idx === idx ? null : { track, idx })}>
+                      {m.durationWeeks}w
+                    </div>
+                    {/* FPI line */}
+                    <div className="gantt-fpi" style={{ left: `${((fpi - 1) / maxWeek) * 100}%` }} />
+                  </div>
+                </div>
+                {editing?.track === track && editing?.idx === idx && (
+                  <div className="gantt-edit">
+                    <label>Start wk</label>
+                    <input type="number" value={m.startWeek} onChange={e => updateMilestone(track, idx, 'startWeek', e.target.value)} />
+                    <label>Duration</label>
+                    <input type="number" value={m.durationWeeks} onChange={e => updateMilestone(track, idx, 'durationWeeks', e.target.value)} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      <div className="gantt-axis" style={{ position: 'relative' }}>
+        {Array.from({ length: Math.min(maxWeek, 16) }, (_, i) => <span key={i}>W{i + 1}</span>)}
+        <div className="gantt-fpi" style={{ left: `${((fpi - 1) / maxWeek) * 100}%`, top: -6, bottom: -2 }}>
+          <div className="gantt-fpi-label">FPI</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfigPanel({ node, nodeType, onChange, onDelete, onClose, onRename }) {
+  if (!node) return null;
+  const isSource = nodeType === 'source', isTerminal = !isSource && node.id === 'terminal';
+  return (
+    <div className="config-overlay">
+      <div className="config-header">
+        <h3>Configure {isSource ? 'Source' : 'Stage'}</h3>
+        <button className="config-close" onClick={onClose}>&times;</button>
+      </div>
+      <div className="config-body">
+        <div className="cfg-group"><label>Name</label><input type="text" value={node.name} onChange={e => onRename(e.target.value)} /></div>
+        {isSource && <>
+          <div className="cfg-group"><label>Category</label><select style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--bg2)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit' }} value={node.category || 'clinical'} onChange={e => onChange({ category: e.target.value })}><option value="clinical">Clinical</option><option value="digital">Digital</option><option value="agentic">Agentic / AI</option></select></div>
+          <div className="cfg-group"><label>Volume (patients/week)</label><div className="slider-row"><input type="range" min="0" max="100" value={node.volume} onChange={e => onChange({ volume: +e.target.value })} /><span className="val">{node.volume}</span></div></div>
+          <div className="cfg-group"><label>Ramp-up (weeks)</label><div className="slider-row"><input type="range" min="1" max="12" value={node.rampUpWeeks} onChange={e => onChange({ rampUpWeeks: +e.target.value })} /><span className="val">{node.rampUpWeeks}</span></div></div>
+          <div className="cfg-group"><label>Cost per patient ($)</label><div className="slider-row"><input type="range" min="0" max="2000" step="10" value={node.costPerPatient} onChange={e => onChange({ costPerPatient: +e.target.value })} /><span className="val">${node.costPerPatient}</span></div></div>
+          <div className="cfg-group"><label className="toggle-row"><input type="checkbox" checked={node.active !== false} onChange={e => onChange({ active: e.target.checked })} /> Active</label></div>
+        </>}
+        {!isSource && !isTerminal && <>
+          <div className="cfg-group"><label title="Percentage of patients who pass this stage and advance to the next">Conversion Rate (%)</label><div className="slider-row"><input type="range" min="0" max="100" value={node.conversionRate} onChange={e => onChange({ conversionRate: +e.target.value })} /><span className="val">{node.conversionRate}%</span></div></div>
+          <div className="cfg-group"><label title="Maximum patients this stage can process per week (capacity constraint)">Throughput (patients/week)</label><div className="slider-row"><input type="range" min="1" max="500" value={node.throughputPerWeek} onChange={e => onChange({ throughputPerWeek: +e.target.value })} /><span className="val">{node.throughputPerWeek}</span></div></div>
+          <div className="cfg-group"><label>Avg Duration (days)</label><div className="slider-row"><input type="range" min="1" max="60" value={node.avgDurationDays} onChange={e => onChange({ avgDurationDays: +e.target.value })} /><span className="val">{node.avgDurationDays}d</span></div></div>
+          <div className="cfg-group"><label title="Percentage of patients who leave mid-stage (different from failing to convert)">Dropout Rate (%)</label><div className="slider-row"><input type="range" min="0" max="30" value={node.dropoutRate} onChange={e => onChange({ dropoutRate: +e.target.value })} /><span className="val">{node.dropoutRate}%</span></div></div>
+        </>}
+        {isTerminal && <div className="cfg-hint">This is the enrollment endpoint. Patients reaching this node count as enrolled.</div>}
+        {!isTerminal && <button className="cfg-delete" onClick={onDelete}>Remove {isSource ? 'Source' : 'Stage'}</button>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SITE TABLE COMPONENT
+// ═══════════════════════════════════════════════════════════════════════
+
+function SiteTable({ sites, onChange, onAdd, onDelete, onDrillIn }) {
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState(1);
+
+  const handleSort = (key) => {
+    if (sortKey === key) setSortDir(d => -d);
+    else { setSortKey(key); setSortDir(1); }
+  };
+
+  const sorted = useMemo(() => {
+    if (!sortKey) return sites;
+    return [...sites].sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey];
+      if (typeof av === 'string') return av.localeCompare(bv) * sortDir;
+      return ((av || 0) - (bv || 0)) * sortDir;
+    });
+  }, [sites, sortKey, sortDir]);
+
+  const updateSite = (id, field, val) => {
+    onChange(sites.map(s => s.id === id ? { ...s, [field]: val } : s));
+  };
+
+  const cols = [
+    { key: 'name', label: 'Site Name', cls: 'name-cell' },
+    { key: 'enrollmentRate', label: 'Rate/wk', cls: 'num-cell' },
+    { key: 'activationWeek', label: 'Activ. Wk', cls: 'num-cell' },
+    { key: 'screenFailRate', label: 'Screen Fail %', cls: 'num-cell' },
+    { key: 'dropoutRate', label: 'Dropout %', cls: 'num-cell' },
+    { key: 'cap', label: 'Cap', cls: 'num-cell' },
+  ];
+
+  const totals = {
+    enrollmentRate: sites.filter(s => s.active).reduce((a, s) => a + s.enrollmentRate, 0).toFixed(1),
+    screenFailRate: sites.length > 0 ? Math.round(sites.reduce((a, s) => a + s.screenFailRate, 0) / sites.length) : 0,
+    dropoutRate: sites.length > 0 ? Math.round(sites.reduce((a, s) => a + s.dropoutRate, 0) / sites.length) : 0,
+  };
+
+  return (
+    <div className="site-table-wrap">
+      <table className="site-table">
+        <thead>
+          <tr>
+            {cols.map(c => (
+              <th key={c.key} className={`${c.cls} ${sortKey === c.key ? 'sorted' : ''}`} onClick={() => handleSort(c.key)}>
+                {c.label} {sortKey === c.key ? (sortDir > 0 ? '\u2191' : '\u2193') : ''}
+              </th>
+            ))}
+            <th className="act-cell">On</th>
+            <th className="detail-cell"></th>
+            <th className="del-cell"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map(s => (
+            <tr key={s.id} style={{ opacity: s.active ? 1 : 0.4 }}>
+              <td className="name-cell"><input type="text" value={s.name} onChange={e => updateSite(s.id, 'name', e.target.value)} /></td>
+              <td className="num-cell"><input type="number" step="0.1" min="0" value={s.enrollmentRate} onChange={e => updateSite(s.id, 'enrollmentRate', +e.target.value || 0)} /></td>
+              <td className="num-cell"><input type="number" min="1" value={s.activationWeek} onChange={e => updateSite(s.id, 'activationWeek', Math.max(1, +e.target.value || 1))} /></td>
+              <td className="num-cell"><input type="number" min="0" max="100" value={s.screenFailRate} onChange={e => updateSite(s.id, 'screenFailRate', Math.min(100, Math.max(0, +e.target.value || 0)))} /></td>
+              <td className="num-cell"><input type="number" min="0" max="100" value={s.dropoutRate} onChange={e => updateSite(s.id, 'dropoutRate', Math.min(100, Math.max(0, +e.target.value || 0)))} /></td>
+              <td className="num-cell"><input type="number" min="0" value={s.cap || ''} placeholder={'\u221e'} onChange={e => updateSite(s.id, 'cap', e.target.value ? +e.target.value : null)} /></td>
+              <td className="act-cell"><input type="checkbox" checked={s.active} onChange={e => updateSite(s.id, 'active', e.target.checked)} style={{ accentColor: 'var(--accent)' }} /></td>
+              <td className="detail-cell">{onDrillIn && <button className="detail-btn" onClick={() => onDrillIn(s.id)}>{'\u2192'}</button>}</td>
+              <td className="del-cell"><button className="del-btn" onClick={() => onDelete(s.id)}>&times;</button></td>
+            </tr>
+          ))}
+          <tr className="add-row"><td colSpan="9"><button className="add-btn" onClick={onAdd}>+ Add Site</button></td></tr>
+          <tr className="summary-row">
+            <td>{sites.length} sites</td>
+            <td className="num-cell">{totals.enrollmentRate}/wk</td>
+            <td className="num-cell"></td>
+            <td className="num-cell">{totals.screenFailRate}% avg</td>
+            <td className="num-cell">{totals.dropoutRate}% avg</td>
+            <td colSpan="4"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════════════
+
+function App() {
+  const [activeTab, setActiveTab] = useState('home');
+
+  // ── Study View State ──
+  const [template, setTemplate] = useState('phase23');
+  const [sources, setSources] = useState([]);
+  const [stages, setStages] = useState([]);
+  const [targetN, setTargetN] = useState(300);
+  const [numSites, setNumSites] = useState(40);
+  const [sel, setSel] = useState(null);
+  const [prevResult, setPrevResult] = useState(null);
+  const [compareOn, setCompareOn] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [customSrcN, setCustomSrcN] = useState(1);
+  const [customStgN, setCustomStgN] = useState(1);
+
+  // ── Multi-Site View State ──
+  const [sites, setSites] = useState([]);
+  const [siteScenario, setSiteScenario] = useState('medium');
+  const [siteTargetN, setSiteTargetN] = useState(300);
+
+  // ── Single Site View State ──
+  const [ssTemplate, setSsTemplate] = useState('academic');
+  const [ssIdentity, setSsIdentity] = useState(SS_TEMPLATES.academic.identity);
+  const [ssStartup, setSsStartup] = useState(SS_TEMPLATES.academic.startup);
+  const [ssReferrals, setSsReferrals] = useState(SS_TEMPLATES.academic.referrals);
+  const [ssFunnel, setSsFunnel] = useState(SS_TEMPLATES.academic.funnel);
+  const [ssMaxConcurrent, setSsMaxConcurrent] = useState(SS_TEMPLATES.academic.maxConcurrent);
+  const [ssTargetN, setSsTargetN] = useState(SS_TEMPLATES.academic.targetN);
+  const [ssLinkedSiteId, setSsLinkedSiteId] = useState(null); // for bidirectional sync
+
+  const loadSsTemplate = useCallback((key) => {
+    const t = SS_TEMPLATES[key];
+    setSsIdentity({ ...t.identity }); setSsStartup(JSON.parse(JSON.stringify(t.startup)));
+    setSsReferrals(t.referrals.map(r => ({ ...r }))); setSsFunnel(t.funnel.map(f => ({ ...f })));
+    setSsMaxConcurrent(t.maxConcurrent); setSsTargetN(t.targetN); setSsLinkedSiteId(null);
+  }, []);
+
+  // ── Shared ──
+  const [toast, setToast] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [animFrame, setAnimFrame] = useState(null);
+  const animRef = useRef(null);
+  const [playSpeed, setPlaySpeed] = useState(1);
+  const [milestone, setMilestone] = useState(null);
+  const milestonesHit = useRef(new Set());
+  const [showWelcome, setShowWelcome] = useState({ study: true, site: true, single: true });
+  const [hasEdited, setHasEdited] = useState(false);
+
+  // ── Study Template Loader ──
+  const loadTemplate = useCallback((key) => {
+    const t = TEMPLATES[key];
+    setSources(t.sources.map(sid => { const b = ALL_SOURCES.find(s => s.id === sid); return b ? { ...b, active: true } : null; }).filter(Boolean));
+    setStages(t.stages.map(s => ({ ...s })));
+    setTargetN(t.targetN); setNumSites(t.numSites);
+    setSel(null); setPrevResult(null); setCompareOn(false); setDrawerOpen(false);
+  }, []);
+  useEffect(() => { loadTemplate(template); }, []);
+
+  // ── Site Scenario Loader ──
+  const loadSiteScenario = useCallback((key) => {
+    setSites(SITE_SCENARIOS[key].generate());
+  }, []);
+  useEffect(() => { loadSiteScenario(siteScenario); }, []);
+
+  // ── Study Simulation ──
+  const result = useMemo(() => simulate(sources, stages, targetN, 104), [sources, stages, targetN]);
+
+  // ── Site Simulation ──
+  const siteResult = useMemo(() => simulateSites(sites, siteTargetN, 104), [sites, siteTargetN]);
+
+  // ── Single-Site Simulation ──
+  const ssConfig = useMemo(() => ({ startup: ssStartup, referrals: ssReferrals, funnel: ssFunnel, maxConcurrent: ssMaxConcurrent, coordinatorFTEs: ssIdentity.coordinatorCount, targetN: ssTargetN }), [ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssIdentity.coordinatorCount, ssTargetN]);
+  const ssResult = useMemo(() => simulateSingleSite(ssConfig, 104), [ssConfig]);
+  const ssFPI = useMemo(() => computeFPI(ssStartup), [ssStartup]);
+
+  // Bidirectional sync: push changes back to multi-site table
+  useEffect(() => {
+    if (!ssLinkedSiteId) return;
+    setSites(prev => prev.map(s => s.id === ssLinkedSiteId ? {
+      ...s, name: ssIdentity.name, enrollmentRate: +ssResult.effectiveRate,
+      activationWeek: ssFPI, screenFailRate: ssResult.screenFailRate,
+    } : s));
+  }, [ssResult.effectiveRate, ssFPI, ssResult.screenFailRate, ssIdentity.name, ssLinkedSiteId]);
+
+  // ── Current result for animation ──
+  const currentTimeline = activeTab === 'study' ? result.timeline : activeTab === 'site' ? siteResult.timeline : ssResult.timeline;
+  const currentResult = activeTab === 'study' ? result : activeTab === 'site' ? siteResult : ssResult;
+
+  // ── Animation ──
+  useEffect(() => {
+    if (!isPlaying) { if (animRef.current) clearInterval(animRef.current); return; }
+    const n = currentTimeline.length; if (!n) { setIsPlaying(false); return; }
+    setAnimFrame(0);
+    milestonesHit.current = new Set();
+    const baseSpeed = Math.max(60, Math.min(200, 8000 / n));
+    const speed = baseSpeed / playSpeed;
+    animRef.current = setInterval(() => {
+      setAnimFrame(prev => { const next = (prev ?? 0) + 1; if (next >= n) { clearInterval(animRef.current); setIsPlaying(false); return null; } return next; });
+    }, speed);
+    return () => { if (animRef.current) clearInterval(animRef.current); };
+  }, [isPlaying, currentTimeline.length, playSpeed]);
+
+  // Milestone detection during playback
+  useEffect(() => {
+    if (animFrame === null || !isPlaying) return;
+    const enrolled = visTimeline.length > 0 ? visTimeline[visTimeline.length - 1].enrolled : 0;
+    const pct = Math.round((enrolled / targetForTab) * 100);
+    const thresholds = [25, 50, 75, 100];
+    for (const t of thresholds) {
+      if (pct >= t && !milestonesHit.current.has(t)) {
+        milestonesHit.current.add(t);
+        const week = visTimeline.length;
+        setMilestone({ pct: t, week, key: `${t}_${Date.now()}` });
+      }
+    }
+  }, [animFrame]);
+
+  // Stop animation on config change
+  useEffect(() => { setIsPlaying(false); setAnimFrame(null); setMilestone(null); }, [sources, stages, targetN, sites, siteTargetN, ssConfig]);
+
+  const visTimeline = animFrame !== null ? currentTimeline.slice(0, animFrame + 1) : currentTimeline;
+  const targetForTab = activeTab === 'study' ? targetN : activeTab === 'site' ? siteTargetN : ssTargetN;
+  const visResult = animFrame !== null ? {
+    ...currentResult,
+    totalEnrolled: visTimeline.length > 0 ? visTimeline[visTimeline.length - 1].enrolled : 0,
+    weeksToTarget: (visTimeline.length > 0 && visTimeline[visTimeline.length - 1].enrolled >= targetForTab) ? visTimeline.length : null,
+    avgEnrollPerWeek: visTimeline.length > 0 ? (visTimeline[visTimeline.length - 1].enrolled / visTimeline.length).toFixed(1) : 0,
+  } : currentResult;
+
+  // ── Study View helpers ──
+  const avgUtil = useMemo(() => stages.map((_, i) => {
+    const d = result.stageUtilization[i] || []; const l = d.slice(-4);
+    return l.length > 0 ? l.reduce((a, b) => a + b, 0) / l.length : 0;
+  }), [result, stages]);
+
+  const updateSrc = (id, c) => { setHasEdited(true); setSources(p => p.map(s => s.id === id ? { ...s, ...c } : s)); };
+  const updateStg = (id, c) => { setHasEdited(true); setStages(p => p.map(s => s.id === id ? { ...s, ...c } : s)); };
+  const addSource = (sid) => { if (sources.find(s => s.id === sid)) return; const b = ALL_SOURCES.find(s => s.id === sid); if (b) setSources(p => [...p, { ...b, active: true }]); };
+  const addCustomSource = () => { const name = prompt('Source name:', `Custom Source ${customSrcN}`); if (!name) return; setSources(p => [...p, { id: `c_${Date.now()}`, name, category: 'clinical', volume: 10, rampUpWeeks: 2, costPerPatient: 200, active: true }]); setCustomSrcN(n => n + 1); };
+  const addStage = () => { const name = prompt('Stage name:', `Stage ${customStgN}`); if (!name) return; setStages(p => { const ns = [...p]; const ti = ns.findIndex(s => s.id === 'terminal'); ns.splice(ti, 0, { id: `stg_${Date.now()}`, name, conversionRate: 70, throughputPerWeek: 100, avgDurationDays: 7, dropoutRate: 2 }); return ns; }); setCustomStgN(n => n + 1); };
+  const deleteNode = (id, type) => { if (type === 'source') setSources(p => p.filter(s => s.id !== id)); else setStages(p => p.filter(s => s.id !== id)); setSel(null); };
+  const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
+
+  const exportConfig = () => {
+    const config = { template, sources, stages, targetN, numSites, sites, siteTargetN, siteScenario, ssIdentity, ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssTargetN, exportedAt: new Date().toISOString() };
+    const b = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'trialsim_config.json'; a.click(); URL.revokeObjectURL(u); showToast('Config exported');
+  };
+  const importConfig = () => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
+    inp.onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try {
+      const c = JSON.parse(ev.target.result);
+      if (c.sources) setSources(c.sources); if (c.stages) setStages(c.stages);
+      if (c.targetN) setTargetN(c.targetN); if (c.numSites) setNumSites(c.numSites);
+      if (c.sites) setSites(c.sites); if (c.siteTargetN) setSiteTargetN(c.siteTargetN);
+      if (c.ssIdentity) setSsIdentity(c.ssIdentity); if (c.ssStartup) setSsStartup(c.ssStartup);
+      if (c.ssReferrals) setSsReferrals(c.ssReferrals); if (c.ssFunnel) setSsFunnel(c.ssFunnel);
+      if (c.ssMaxConcurrent) setSsMaxConcurrent(c.ssMaxConcurrent); if (c.ssTargetN) setSsTargetN(c.ssTargetN);
+      showToast('Config imported');
+    } catch { showToast('Invalid file'); } }; r.readAsText(f); }; inp.click();
+  };
+  const importCSV = () => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv';
+    inp.onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = ev => {
+      const lines = ev.target.result.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) { showToast('CSV needs a header + data rows'); return; }
+      const hdr = lines[0].toLowerCase().split(',').map(h => h.trim());
+      const nameIdx = hdr.findIndex(h => h.includes('name') || h.includes('site'));
+      const rateIdx = hdr.findIndex(h => h.includes('rate') || h.includes('enroll'));
+      const actIdx = hdr.findIndex(h => h.includes('activ') || h.includes('start'));
+      const sfIdx = hdr.findIndex(h => h.includes('screen') || h.includes('fail'));
+      const doIdx = hdr.findIndex(h => h.includes('drop'));
+      const capIdx = hdr.findIndex(h => h.includes('cap'));
+      const newSites = lines.slice(1).map((line, i) => {
+        const cols = line.split(',').map(c => c.trim());
+        return {
+          id: `csv_${Date.now()}_${i}`,
+          name: nameIdx >= 0 ? cols[nameIdx] : `Site ${i + 1}`,
+          enrollmentRate: rateIdx >= 0 ? +(+cols[rateIdx] || 1).toFixed(1) : 1.0,
+          activationWeek: actIdx >= 0 ? Math.max(1, +cols[actIdx] || 1) : 1,
+          screenFailRate: sfIdx >= 0 ? Math.min(100, Math.max(0, +cols[sfIdx] || 30)) : 30,
+          dropoutRate: doIdx >= 0 ? Math.min(100, Math.max(0, +cols[doIdx] || 3)) : 3,
+          cap: capIdx >= 0 && cols[capIdx] ? +cols[capIdx] : null,
+          active: true,
+        };
+      });
+      setSites(newSites);
+      showToast(`Imported ${newSites.length} sites`);
+    }; r.readAsText(f); }; inp.click();
+  };
+
+  const available = ALL_SOURCES.filter(s => !sources.find(x => x.id === s.id));
+  const heatWeeks = useMemo(() => { const n = result.timeline.length || 1; const cols = Math.min(n, 20); const step = Math.max(1, Math.floor(n / cols)); const w = []; for (let i = 0; i < n; i += step) w.push(i); return w; }, [result]);
+  const selObj = sel ? (sel.type === 'source' ? sources.find(s => s.id === sel.id) : stages.find(s => s.id === sel.id)) : null;
+  const totalWeeklyVol = sources.filter(s => s.active !== false).reduce((a, s) => a + s.volume, 0);
+
+  // Site waterfall data
+  const waterfallData = useMemo(() => {
+    return sites.filter(s => s.active).map(s => ({
+      id: s.id,
+      name: s.name.length > 20 ? s.name.substring(0, 18) + '...' : s.name,
+      fullName: s.name,
+      enrolled: Math.round(siteResult.perSiteTotal[s.id] || 0),
+    })).sort((a, b) => b.enrolled - a.enrolled).slice(0, 25);
+  }, [sites, siteResult]);
+  const maxSiteEnroll = waterfallData.length > 0 ? Math.max(...waterfallData.map(d => d.enrolled)) : 1;
+
+  // Status
+  let statusText, statusColor;
+  if (isPlaying && animFrame !== null) {
+    statusText = `Week ${animFrame + 1} \u2014 ${visResult.totalEnrolled} of ${targetForTab} enrolled`;
+    statusColor = 'var(--accent)';
+  } else if (visResult.weeksToTarget) {
+    statusText = `Target reached in ${visResult.weeksToTarget} weeks (${(visResult.weeksToTarget / 4.33).toFixed(0)} months)`;
+    statusColor = 'var(--green)';
+  } else {
+    statusText = `Target not reached \u2014 ${visResult.totalEnrolled}/${targetForTab} in 104 weeks`;
+    statusColor = 'var(--orange)';
+  }
+
+  // Add site helper
+  const addSite = () => {
+    const idx = sites.length;
+    setSites(p => [...p, {
+      id: `site_${Date.now()}`,
+      name: SITE_NAMES_POOL[idx % SITE_NAMES_POOL.length] || `Site ${idx + 1}`,
+      enrollmentRate: 1.5,
+      activationWeek: 1,
+      screenFailRate: 30,
+      dropoutRate: 3,
+      cap: null,
+      active: true,
+    }]);
+  };
+
+  // Drill into single site from multi-site table
+  const drillIntoSite = (siteId) => {
+    const s = sites.find(x => x.id === siteId);
+    if (!s) return;
+    // Map multi-site row data to single-site config
+    setSsIdentity({ name: s.name, piName: 'PI', coordinatorCount: 2 });
+    // Generate default startup tracks, use activationWeek to scale
+    const scale = Math.max(1, s.activationWeek / 10);
+    const tmpl = SS_TEMPLATES.academic;
+    setSsStartup(JSON.parse(JSON.stringify(tmpl.startup)));
+    // Map enrollment rate back to referral sources
+    const totalFunnelConv = tmpl.funnel.reduce((acc, f) => f.conversionRate < 100 ? acc * (f.conversionRate / 100) : acc, 1);
+    const neededRefVol = Math.max(1, Math.round(s.enrollmentRate / totalFunnelConv));
+    setSsReferrals([
+      { id: 'ref1', name: 'Physician Referral', volumePerWeek: Math.round(neededRefVol * 0.4) },
+      { id: 'ref2', name: 'EHR Screening', volumePerWeek: Math.round(neededRefVol * 0.45) },
+      { id: 'ref3', name: 'Self-referral', volumePerWeek: Math.max(1, Math.round(neededRefVol * 0.15)) },
+    ]);
+    // Map screen fail rate to funnel
+    const adjustedFunnel = tmpl.funnel.map(f => ({ ...f }));
+    // Distribute screen fail rate across funnel stages
+    const sfAdj = s.screenFailRate / 100;
+    adjustedFunnel.forEach(f => { if (f.conversionRate < 100) f.conversionRate = Math.max(10, Math.round(f.conversionRate * (1 - sfAdj * 0.3))); });
+    setSsFunnel(adjustedFunnel);
+    setSsMaxConcurrent(20);
+    setSsTargetN(s.cap || 15);
+    setSsLinkedSiteId(siteId);
+    setActiveTab('single');
+    showToast(`Editing ${s.name} in detail`);
+  };
+
+  // ── Home Page ──
+  if (activeTab === 'home') {
+    return (
+      <div className="home">
+        {/* Header */}
+        <div className="home-header">
+          <div className="hh-brand">
+            <span className="hh-org">AIM Research</span>
+            <span className="hh-div" />
+            <span className="hh-name">TrialSim</span>
+          </div>
+          <div className="hh-nav">
+            <a href="#" onClick={e => { e.preventDefault(); setActiveTab('tutorial'); }}>Guide</a>
+            <a href="https://trialibre.aimronline.org" target="_blank" rel="noopener">Trialibre</a>
+            <a href="https://trialearn.aimronline.org" target="_blank" rel="noopener">Trialearn</a>
+            <a className="hh-cta" href="#" onClick={e => { e.preventDefault(); setActiveTab('study'); }}>Launch Simulator</a>
+          </div>
+        </div>
+        {/* Hero */}
+        <div className="home-hero">
+          <div className="hero-badge">Beta &middot; Free &middot; Non-Commercial</div>
+          <h1>TrialSim</h1>
+          <p className="hero-sub">Interactive enrollment simulation for clinical trials. Model how different recruitment strategies, site configurations, and protocol designs affect your enrollment timeline.</p>
+          <button className="hero-cta" onClick={() => setActiveTab('study')}>Launch Simulator &rarr;</button>
+          <button className="hero-sec" onClick={() => { document.getElementById('home-how').scrollIntoView({ behavior: 'smooth' }); }}>See How It Works</button>
+        </div>
+
+        {/* Stats bar */}
+        <div className="home-stats-bar">
+          <div className="hs"><div className="hs-num">3</div><div className="hs-label">Simulation views</div></div>
+          <div className="hs"><div className="hs-num">9</div><div className="hs-label">Patient sources</div></div>
+          <div className="hs"><div className="hs-num">4</div><div className="hs-label">Trial templates</div></div>
+          <div className="hs"><div className="hs-num">80+</div><div className="hs-label">Research sites</div></div>
+        </div>
+
+        {/* Features */}
+        <div className="home-section">
+          <h2>Built for enrollment planning</h2>
+          <p className="hs-sub">Every feature designed around the real questions sponsors and CROs ask during trial planning and execution.</p>
+          <div className="home-features">
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F50D;</div>
+              <h3>Source Mix Optimization</h3>
+              <p>Model 9 patient source types across clinical, digital, and agentic AI categories. See how adding or removing channels shifts your enrollment timeline and cost per patient.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F3ED;</div>
+              <h3>Patient Funnel Simulation</h3>
+              <p>Configure each screening stage with conversion rates, throughput capacity, dropout rates, and processing time. Identify bottlenecks with the utilization heatmap.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F4C8;</div>
+              <h3>Real-Time Results</h3>
+              <p>Every parameter change instantly recalculates enrollment timeline, rate, screen failure, and cost. No waiting for batch runs. Watch the simulation animate week by week.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F3E5;</div>
+              <h3>Per-Site Modeling</h3>
+              <p>Model 40+ individual sites with different enrollment rates, activation timelines, and screen failure rates. Import your feasibility list via CSV. Identify top and bottom performers.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F4C5;</div>
+              <h3>Startup Gantt Timeline</h3>
+              <p>Model parallel regulatory, legal, and operational startup tracks for each site. Milestones auto-cascade. First Patient In is computed from the critical path.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F504;</div>
+              <h3>Scenario Comparison</h3>
+              <p>Snapshot your baseline, make changes, and overlay the comparison on the enrollment curve. See exactly how many weeks a strategy change saves or costs.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F916;</div>
+              <h3>Agentic AI Sources</h3>
+              <p>Model next-generation recruitment channels like agentic outreach, AI pre-screening, and automated re-engagement alongside traditional sources.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F517;</div>
+              <h3>Bidirectional Drill-In</h3>
+              <p>Click any site in the multi-site table to drill into its detailed view. Changes to startup timelines and referral pipelines sync back to the portfolio automatically.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F4BE;</div>
+              <h3>Export & Share</h3>
+              <p>Export your entire configuration as JSON. Share with colleagues who can import it to see your exact scenario. All three views' settings are preserved.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Three views */}
+        <div className="home-section" style={{ background: 'var(--bg3)', maxWidth: 'none', padding: '48px 40px' }}>
+          <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+            <h2>Three levels of simulation</h2>
+            <p className="hs-sub">From high-level study planning down to individual site startup timelines.</p>
+            <div className="home-views">
+              <div className="home-view">
+                <div className="hv-num">1</div>
+                <h3>Study View</h3>
+                <div className="hv-when">Early Planning</div>
+                <p>Model your recruitment source mix and patient funnel at the aggregate level. Answer: "With these sources and conversion rates, when do we hit our enrollment target?"</p>
+              </div>
+              <div className="home-view">
+                <div className="hv-num">2</div>
+                <h3>Multi-Site View</h3>
+                <div className="hv-when">Execution Planning</div>
+                <p>Model enrollment across your actual site portfolio. Each site has its own rate, activation week, and screen failure rate. Import from CSV or edit inline.</p>
+              </div>
+              <div className="home-view">
+                <div className="hv-num">3</div>
+                <h3>Single Site View</h3>
+                <div className="hv-when">Site-Level Detail</div>
+                <p>Model one site's parallel startup tracks (regulatory, legal, operational) in a Gantt chart, configure the referral pipeline, and tune each funnel stage.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* How it works */}
+        <div className="home-section" id="home-how">
+          <h2>How it works</h2>
+          <p className="hs-sub">Four steps to your first enrollment forecast.</p>
+          <div className="home-how">
+            <div className="home-how-step">
+              <div className="hhs-num">1</div>
+              <h4>Pick a template</h4>
+              <p>Choose Phase 1, Phase 2/3, Rare Disease, or Decentralized. Pre-loads appropriate sources, funnel stages, and targets.</p>
+            </div>
+            <div className="home-how-step">
+              <div className="hhs-num">2</div>
+              <h4>Customize parameters</h4>
+              <p>Add or remove sources, adjust conversion rates, change target N. Click any card to edit. Everything is interactive.</p>
+            </div>
+            <div className="home-how-step">
+              <div className="hhs-num">3</div>
+              <h4>See results instantly</h4>
+              <p>Enrollment timeline, rate, screen failure, and cost update in real-time. No batch runs. No waiting.</p>
+            </div>
+            <div className="home-how-step">
+              <div className="hhs-num">4</div>
+              <h4>Compare scenarios</h4>
+              <p>Snapshot your baseline, make changes, and see the difference overlaid on the enrollment curve.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="home-cta-section">
+          <h2>Ready to simulate?</h2>
+          <p>No login. No install. Just open and start modeling.</p>
+          <button className="hero-cta" onClick={() => setActiveTab('study')}>Launch Simulator &rarr;</button>
+        </div>
+
+        {/* Footer */}
+        <div className="footer">
+          <div className="footer-inner">
+            <div className="footer-org">American Institute for Medical Research</div>
+            <div className="footer-links">
+              <a href="https://aimronline.org" target="_blank" rel="noopener">AIMR Home</a>
+              <a href="https://trialibre.aimronline.org" target="_blank" rel="noopener">Trialibre</a>
+              <a href="https://trialearn.aimronline.org" target="_blank" rel="noopener">Trialearn</a>
+            </div>
+          </div>
+          <div className="footer-copy">&copy; 2026 American Institute for Medical Research. TrialSim is a non-commercial research tool.</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app">
+      {/* ── Top Bar ── */}
+      <div className="topbar">
+        <div className="topbar-brand"><span className="brand-org" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('home')}>AIM Research</span><span className="brand-div" /><h1 style={{ cursor: 'pointer' }} onClick={() => setActiveTab('home')}>TrialSim</h1><span className="beta-badge">Beta</span></div>
+        <div className="topbar-sep" />
+        <div className="topbar-controls">
+          {activeTab === 'tutorial' && <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Getting started with TrialSim</span>}
+          {activeTab === 'study' && <>
+            <select value={template} onChange={e => { if (!confirm('Switch template? Current configuration will be replaced.')) return; setTemplate(e.target.value); loadTemplate(e.target.value); }}>
+              {Object.entries(TEMPLATES).map(([k, v]) => <option key={k} value={k}>{v.name} {'\u2014'} {v.desc}</option>)}
+            </select>
+            <div className="field"><label>Target N</label><input type="number" value={targetN} onChange={e => setTargetN(Math.max(1, +e.target.value || 1))} /></div>
+            <div className="field"><label>Sites</label><input type="number" value={numSites} onChange={e => setNumSites(Math.max(1, +e.target.value || 1))} /></div>
+          </>}
+          {activeTab === 'site' && <>
+            <select value={siteScenario} onChange={e => { if (!confirm('Switch scenario? Current site configuration will be replaced.')) return; setSiteScenario(e.target.value); loadSiteScenario(e.target.value); }}>
+              {Object.entries(SITE_SCENARIOS).map(([k, v]) => <option key={k} value={k}>{v.name} {'\u2014'} {v.desc}</option>)}
+            </select>
+            <div className="field"><label>Target N</label><input type="number" value={siteTargetN} onChange={e => setSiteTargetN(Math.max(1, +e.target.value || 1))} /></div>
+          </>}
+          {activeTab === 'single' && <>
+            <select value={ssTemplate} onChange={e => { if (!confirm('Switch site template? Current configuration will be replaced.')) return; setSsTemplate(e.target.value); loadSsTemplate(e.target.value); }}>
+              {Object.entries(SS_TEMPLATES).map(([k, v]) => <option key={k} value={k}>{v.name} {'\u2014'} {v.desc}</option>)}
+            </select>
+            <div className="field"><label>Site Target</label><input type="number" value={ssTargetN} onChange={e => setSsTargetN(Math.max(1, +e.target.value || 1))} /></div>
+            {ssLinkedSiteId && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 500 }}>Linked to multi-site table</span>}
+          </>}
+        </div>
+        <div className="topbar-right">
+          <button className="btn btn-primary" onClick={() => { if (isPlaying) { setIsPlaying(false); setAnimFrame(null); setMilestone(null); } else setIsPlaying(true); }}>
+            {isPlaying ? '\u25A0 Stop' : '\u25B6 Play'}
+          </button>
+          {isPlaying && (
+            <div className="speed-control">
+              <label>Speed</label>
+              <input type="range" min="0.25" max="5" step="0.25" value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)} />
+              <span className="speed-val">{playSpeed}x</span>
+            </div>
+          )}
+          {activeTab === 'study' && <>
+            <button className="btn" onClick={() => { setPrevResult(result); setCompareOn(true); showToast('Baseline saved'); }}>Snapshot</button>
+            {compareOn && <button className="btn" onClick={() => setCompareOn(false)} style={{ color: 'var(--orange)' }}>Clear</button>}
+          </>}
+          <div className="topbar-sep" />
+          {hasEdited && <div className="save-reminder" onClick={exportConfig} style={{ cursor: 'pointer' }}>Unsaved changes &middot; Export to save</div>}
+          <button className="btn btn-ghost" onClick={() => { exportConfig(); setHasEdited(false); }}>Export</button>
+          <button className="btn btn-ghost" onClick={importConfig}>Import</button>
+        </div>
+      </div>
+
+      {/* ── Tab Bar ── */}
+      <div className="tab-bar">
+        <button className={`tab-btn tab-tutorial ${activeTab === 'tutorial' ? 'active' : ''}`} onClick={() => setActiveTab('tutorial')}>Guide</button>
+        <button className={`tab-btn ${activeTab === 'study' ? 'active' : ''}`} onClick={() => setActiveTab('study')}>Study View <span className="tab-sub">Source mix & funnel</span></button>
+        <button className={`tab-btn ${activeTab === 'site' ? 'active' : ''}`} onClick={() => setActiveTab('site')}>Multi-Site <span className="tab-sub">Site portfolio</span></button>
+        <button className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')}>Single Site <span className="tab-sub">Startup & pipeline</span></button>
+      </div>
+
+      {isPlaying && animFrame !== null && (
+        <div className="playback-bar"><div className="playback-fill" style={{ width: `${(animFrame / (currentTimeline.length || 1)) * 100}%` }} /></div>
+      )}
+      <div className="main-scroll">
+        {/* ═══ TUTORIAL ═══ */}
+        {activeTab === 'tutorial' && (
+          <div className="tutorial-page">
+            <h2>Welcome to TrialSim</h2>
+            <p className="tp-sub">An interactive enrollment simulator for clinical trials. Model how different recruitment strategies, site configurations, and protocol designs affect your enrollment timeline and budget.</p>
+
+            <div className="concept-grid">
+              <div className="concept-card">
+                <h4><span className="cc-icon">&#x1F465;</span> Patients flow through a funnel</h4>
+                <p>Patients enter from recruitment sources (site databases, digital ads, AI outreach) and pass through screening stages. At each stage, some convert and advance, some fail screening, and some drop out. The survivors reach enrollment.</p>
+              </div>
+              <div className="concept-card">
+                <h4><span className="cc-icon">&#x23F1;</span> Everything is about time</h4>
+                <p>The core question is: <strong>how many weeks to reach your target enrollment?</strong> Every parameter you change (source volume, conversion rates, site count, startup timelines) shifts that answer. TrialSim recalculates instantly.</p>
+              </div>
+              <div className="concept-card">
+                <h4><span className="cc-icon">&#x1F4CA;</span> Three levels of detail</h4>
+                <p>Study View models the whole trial at aggregate level. Multi-Site View models each site individually. Single Site View zooms into one site's startup and patient pipeline. Use all three together or independently.</p>
+              </div>
+              <div className="concept-card">
+                <h4><span className="cc-icon">&#x1F3AC;</span> Watch it play out</h4>
+                <p>Click <strong>Play</strong> to animate the simulation week by week. You'll see the enrollment curve draw in real-time, milestone badges pop up at 25/50/75/100%, and particles flow through the pipeline. Adjust speed with the slider.</p>
+              </div>
+            </div>
+
+            <hr />
+
+            <h3>The Three Views</h3>
+            <p>Each tab answers a different business question. Click any card to jump to that view.</p>
+
+            <div className="view-cards">
+              <div className="view-card" onClick={() => setActiveTab('study')}>
+                <div className="vc-when">Early Planning</div>
+                <h4>Study View</h4>
+                <p>Model your recruitment source mix and patient funnel. Answer: "If we use these sources with these conversion rates, when do we hit target N?"</p>
+                <p>Add/remove patient sources (clinical, digital, agentic AI). Configure each funnel stage's conversion, throughput, and dropout. Compare scenarios with the Snapshot feature.</p>
+                <div className="vc-try">Open Study View &rarr;</div>
+              </div>
+              <div className="view-card" onClick={() => setActiveTab('site')}>
+                <div className="vc-when">Execution Planning</div>
+                <h4>Multi-Site View</h4>
+                <p>Model enrollment across your actual site portfolio. Answer: "Given these 40 sites with these rates, when do we finish?"</p>
+                <p>Edit sites inline, import from CSV, toggle sites on/off. See which sites contribute most in the waterfall chart. Click the arrow on any row to drill into its detailed view.</p>
+                <div className="vc-try">Open Multi-Site View &rarr;</div>
+              </div>
+              <div className="view-card" onClick={() => setActiveTab('single')}>
+                <div className="vc-when">Site-Level Detail</div>
+                <h4>Single Site View</h4>
+                <p>Model one site's startup timeline and patient pipeline. Answer: "When does this site get to first patient in, and how many can it enroll?"</p>
+                <p>Configure parallel startup tracks (regulatory, legal, operational) in the Gantt chart. Set referral sources and tune each funnel stage. Changes sync back to the Multi-Site table.</p>
+                <div className="vc-try">Open Single Site View &rarr;</div>
+              </div>
+            </div>
+
+            <hr />
+
+            <h3><span className="step-num">1</span> Quick Start: Your First Scenario</h3>
+            <p>The fastest way to get started:</p>
+            <p><strong>1.</strong> Go to <strong>Study View</strong> and pick a trial template (Phase 1, Phase 2/3, Rare Disease, or Decentralized). This pre-loads appropriate sources, funnel stages, and target enrollment.</p>
+            <p><strong>2.</strong> Adjust the <strong>Target N</strong> in the toolbar to match your actual enrollment target.</p>
+            <p><strong>3.</strong> Click any source card on the left to modify its patient volume, or click a funnel stage to change conversion rates.</p>
+            <p><strong>4.</strong> Watch the Results section update in real-time as you make changes.</p>
+            <p><strong>5.</strong> Click <strong>Play</strong> to see the enrollment build week by week.</p>
+
+            <div className="tip"><strong>Tip:</strong> Use the <strong>Snapshot</strong> button to save your current results as a baseline, then make changes. The enrollment curve will overlay your baseline as a dashed line so you can see the difference.</div>
+
+            <h3><span className="step-num">2</span> Going Deeper: Site-Level Modeling</h3>
+            <p>Once you have a study-level plan, switch to <strong>Multi-Site View</strong> to model specific sites:</p>
+            <p><strong>1.</strong> Load a site scenario (Small/Medium/Large) or import your own site list via CSV.</p>
+            <p><strong>2.</strong> Edit any site's enrollment rate, activation week, or screen failure rate directly in the table.</p>
+            <p><strong>3.</strong> Click the <strong>&rarr;</strong> arrow on any row to drill into that site's detailed view in Single Site View.</p>
+            <p><strong>4.</strong> Changes you make in Single Site View automatically sync back to the Multi-Site table.</p>
+
+            <div className="tip"><strong>Tip:</strong> Sort the table by Rate/wk to quickly identify your highest and lowest performing sites. The waterfall chart shows the top 25 contributors at a glance.</div>
+
+            <h3><span className="step-num">3</span> Saving and Sharing</h3>
+            <p>Click <strong>Export</strong> in the toolbar to download your entire configuration as a JSON file. This captures all three views' settings. Share it with colleagues and they can <strong>Import</strong> it to see your exact scenario.</p>
+
+            <hr />
+
+            <h3>Key Concepts</h3>
+            <table className="key-table">
+              <thead><tr><th>Term</th><th>What It Means</th></tr></thead>
+              <tbody>
+                <tr><td>Conversion Rate</td><td>Percentage of patients who pass a funnel stage and advance to the next one. 60% conversion means 40% are screened out.</td></tr>
+                <tr><td>Throughput</td><td>Maximum patients a stage can process per week. This is a capacity constraint — if more patients arrive than throughput allows, they queue up.</td></tr>
+                <tr><td>Dropout Rate</td><td>Percentage of patients who leave voluntarily mid-stage — distinct from screen failure. These patients were eligible but chose to withdraw.</td></tr>
+                <tr><td>Screen Failure</td><td>Overall percentage of identified patients who never reach enrollment, across all funnel stages combined.</td></tr>
+                <tr><td>Ramp-up</td><td>Weeks for a source to reach full volume. Models the real-world delay before a new recruitment channel is fully operational.</td></tr>
+                <tr><td>FPI (First Patient In)</td><td>The week when a site enrolls its first patient. In Single Site View, this is computed from the critical path across all startup tracks.</td></tr>
+                <tr><td>Activation Week</td><td>The week a site comes online and starts enrolling. In Multi-Site View, sites with later activation weeks start contributing later.</td></tr>
+                <tr><td>Max Concurrent</td><td>Maximum patients a site can manage simultaneously. Constrained by coordinator capacity (~8 patients per coordinator FTE).</td></tr>
+              </tbody>
+            </table>
+
+            <hr />
+
+            <p style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 11, marginTop: 20 }}>
+              TrialSim is developed by the <a href="https://aimronline.org" target="_blank" rel="noopener" style={{ color: 'var(--text2)' }}>American Institute for Medical Research</a>, a non-profit organization.
+            </p>
+          </div>
+        )}
+
+        {/* ═══ STUDY VIEW ═══ */}
+        {activeTab === 'study' && <>
+          {showWelcome.study && (<>
+            <div className="welcome-banner">
+              <span className="wb-icon">&#x1F3AF;</span>
+              <div className="wb-text">
+                <div className="wb-title">Study View: Model your recruitment strategy</div>
+                <div className="wb-desc">Pick a starting template below, then customize sources, funnel stages, and target enrollment. Click any card to edit. Results update in real-time.</div>
+              </div>
+              <button className="wb-close" onClick={() => setShowWelcome(p => ({ ...p, study: false }))}>&times;</button>
+            </div>
+            <div className="template-cards">
+              {Object.entries(TEMPLATES).map(([k, v]) => (
+                <div key={k} className={`template-card ${template === k ? 'tc-active' : ''}`} onClick={() => { setTemplate(k); loadTemplate(k); setShowWelcome(p => ({ ...p, study: false })); }}>
+                  <div className="tc-name">{v.name}</div>
+                  <div className="tc-desc">{v.desc}</div>
+                  <div className="tc-stats">
+                    <span className="tc-stat">N={v.targetN}</span>
+                    <span className="tc-stat">{v.numSites} sites</span>
+                    <span className="tc-stat">{v.sources.length} sources</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>)}
+          <div className="pipeline-section">
+            <div className="pipeline-header">
+              <h2>Recruitment Sources & Enrollment Funnel</h2>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>{totalWeeklyVol} patients/week from {sources.filter(s => s.active !== false).length} sources</span>
+                <button className="source-drawer-toggle" onClick={() => setDrawerOpen(!drawerOpen)}>{drawerOpen ? 'Hide sources' : '+ Add source'}</button>
+              </div>
+            </div>
+            {drawerOpen && (
+              <div className="source-drawer">
+                {available.map(s => <button key={s.id} className="source-chip" onClick={() => addSource(s.id)}><span className="chip-dot" style={{ background: CAT_COLORS[s.category] }} />{s.name}</button>)}
+                <button className="source-chip" onClick={addCustomSource} style={{ borderStyle: 'dashed' }}>+ Custom</button>
+              </div>
+            )}
+            <div className="pipeline-canvas">
+              <ParticleFlow isPlaying={isPlaying && activeTab === 'study'} stageCount={stages.length} sourceCount={sources.filter(s => s.active !== false).length} />
+              <div className="source-stack">
+                <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 4 }}>Sources</div>
+                {sources.map(s => (
+                  <div key={s.id} className={`source-card ${sel?.id === s.id ? 'selected' : ''} ${s.active === false ? 'inactive' : ''}`} onClick={() => setSel({ id: s.id, type: 'source' })}>
+                    <span className="cat-dot" style={{ background: CAT_COLORS[s.category] }} /><span className="sc-name">{s.name}</span><span className="sc-vol">{s.volume}/w</span>
+                  </div>
+                ))}
+              </div>
+              <div className="merge-connector"><ArrowSVG /></div>
+              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginRight: 4 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', writingMode: 'vertical-lr', transform: 'rotate(180deg)' }}>Funnel</div>
+              </div>
+              <div className="stage-pipeline">
+                {stages.map((stage, i) => {
+                  const isT = stage.id === 'terminal', util = avgUtil[i] || 0;
+                  const uc = util > 1.2 ? '#a63d34' : util > 0.8 ? '#b07d20' : '#2d7a50';
+                  return (
+                    <React.Fragment key={stage.id}>
+                      <div className={`stage-card ${isT ? 'terminal-card' : ''} ${sel?.id === stage.id ? 'selected' : ''}`} onClick={() => setSel({ id: stage.id, type: 'stage' })}>
+                        <div className="sc-name">{stage.name}</div>
+                        {!isT && <><div className="sc-stats"><span>{stage.conversionRate}% conv</span><span>{stage.throughputPerWeek}/wk</span></div><div className="sc-stats2"><span>{stage.avgDurationDays}d</span>{stage.dropoutRate > 0 && <span>{stage.dropoutRate}% drop</span>}</div><div className="util-bar"><div className="util-fill" style={{ width: `${Math.min(util * 100, 200)}%`, background: uc }} /></div></>}
+                        {isT && <div className="sc-stats" style={{ color: 'var(--green)' }}>Target endpoint</div>}
+                      </div>
+                      {i < stages.length - 1 && <div className="stage-arrow"><ArrowSVG /></div>}
+                    </React.Fragment>
+                  );
+                })}
+                <button className="add-stage-pill" onClick={addStage}>+ Stage</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="results-section">
+            <div className="results-header"><h2>Results</h2><span className="results-status" style={{ color: statusColor }}>{statusText}</span></div>
+            <div className="stats-row">
+              <div className="stat-tile"><div className="st-label">Time to Target</div><div className="st-value" style={{ color: visResult.weeksToTarget ? 'var(--green)' : (isPlaying ? 'var(--text)' : 'var(--orange)') }}>{isPlaying && !visResult.weeksToTarget ? `${visTimeline.length} wk` : (visResult.weeksToTarget ? `${visResult.weeksToTarget} wk` : '> 104 wk')}</div><div className="st-sub">{visResult.weeksToTarget ? `${(visResult.weeksToTarget / 4.33).toFixed(1)} months` : `${visResult.totalEnrolled} of ${targetN}`}</div></div>
+              <div className="stat-tile"><div className="st-label">Enrollment Rate</div><div className="st-value"><AnimCounter value={parseFloat(visResult.avgEnrollPerWeek)} suffix="/wk" /></div><div className="st-sub">{(visResult.avgEnrollPerWeek * 4.33).toFixed(1)}/month</div></div>
+              <div className="stat-tile"><div className="st-label">Screen Failure</div><div className="st-value" style={{ color: result.screenFailRate > 80 ? 'var(--red)' : result.screenFailRate > 60 ? 'var(--orange)' : 'var(--text)' }}><AnimCounter value={result.screenFailRate} suffix="%" /></div><div className="st-sub">Not enrolled</div><div className="bench-hint">Industry avg: 50-85%</div></div>
+              <div className="stat-tile"><div className="st-label">Cost / Enrolled</div><div className="st-value"><AnimCounter value={result.costPerEnrolled} prefix="$" /></div><div className="st-sub">Total: ${result.totalCost.toLocaleString()}</div><div className="bench-hint">Typical: $1,500-$5,000</div></div>
+            </div>
+            <div className="results-grid">
+              <div className="result-card">
+                <h4>Enrollment Timeline</h4>
+                {compareOn && prevResult && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> Baseline</div></div>}
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                    <XAxis dataKey="week" stroke="#8c857e" tick={{ fontSize: 10 }} domain={[1, result.timeline.length]} label={{ value: 'Week', position: 'insideBottom', offset: -2, style: { fontSize: 10, fill: '#8c857e' } }} />
+                    <YAxis stroke="#8c857e" tick={{ fontSize: 10 }} domain={[0, Math.ceil(targetN * 1.1)]} />
+                    <RTooltip contentStyle={{ background: '#fff', border: '1px solid #d4cfca', borderRadius: 6, fontSize: 11, color: '#1e1e1e' }} formatter={(v) => [v, 'Enrolled']} labelFormatter={(w) => `Week ${w}`} />
+                    <ReferenceLine y={targetN} stroke="#b07d20" strokeDasharray="6 3" label={{ value: `Target: ${targetN}`, position: 'right', style: { fontSize: 10, fill: '#b07d20' } }} />
+                    {compareOn && prevResult && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} />}
+                    <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill="rgba(176,78,48,0.12)" strokeWidth={2.5} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="result-card">
+                <h4>Stage Utilization</h4>
+                <div className="hm-legend"><span style={{ color: '#2d7a50' }}>Spare</span><span style={{ color: '#b07d20' }}>Busy</span><span style={{ color: '#a63d34' }}>Bottleneck</span></div>
+                <div className="heatmap">
+                  {stages.filter(s => s.id !== 'terminal').map((stage, i) => (
+                    <div key={stage.id} className="hm-row"><div className="hm-label" title={stage.name}>{stage.name}</div><div className="hm-cells">{heatWeeks.map((wIdx, j) => { const u = (result.stageUtilization[i] || [])[wIdx] || 0; return <div key={j} className="hm-cell" style={{ background: heatColor(u) }} title={`Wk ${wIdx + 1}: ${(u * 100).toFixed(0)}%`} />; })}</div></div>
+                  ))}
+                  <div className="hm-axis">{heatWeeks.filter((_, i) => i % Math.max(1, Math.floor(heatWeeks.length / 6)) === 0).map((w, i) => <span key={i}>Wk {w + 1}</span>)}</div>
+                </div>
+                <h4 style={{ marginTop: 18 }}>Source Contribution</h4>
+                <div className="source-bars">
+                  {sources.filter(s => s.active !== false).map(s => (
+                    <div key={s.id} className="sb-row"><div className="sb-label" title={s.name}>{s.name}</div><div className="sb-track"><div className="sb-fill" style={{ width: `${result.sourcePercents[s.id] || 0}%`, background: CAT_COLORS[s.category] }} /></div><div className="sb-val">{result.sourcePercents[s.id] || 0}%</div></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>}
+
+        {/* ═══ SITE VIEW ═══ */}
+        {activeTab === 'site' && <>
+          {showWelcome.site && (
+            <div className="welcome-banner">
+              <span className="wb-icon">&#x1F3E5;</span>
+              <div className="wb-text">
+                <div className="wb-title">Multi-Site View: Forecast enrollment across your site portfolio</div>
+                <div className="wb-desc">Edit sites directly in the table, import a CSV, or load sample data. Click the arrow button on any row to drill into that site's detailed view. All changes to rates and screen failure update the enrollment forecast instantly.</div>
+              </div>
+              <button className="wb-close" onClick={() => setShowWelcome(p => ({ ...p, site: false }))}>&times;</button>
+            </div>
+          )}
+          <div className="site-section">
+            <div className="site-section-header">
+              <h2>Site Configuration</h2>
+              <div className="site-controls">
+                <button className="btn" onClick={importCSV}>Import CSV</button>
+                <button className="btn" onClick={() => { setSites(SITE_SCENARIOS[siteScenario].generate()); showToast('Sample data loaded'); }}>Load Sample Data</button>
+              </div>
+            </div>
+            <SiteTable sites={sites} onChange={setSites} onAdd={addSite} onDelete={id => setSites(p => p.filter(s => s.id !== id))} onDrillIn={drillIntoSite} />
+          </div>
+
+          <div className="results-section">
+            <div className="results-header"><h2>Results</h2><span className="results-status" style={{ color: statusColor }}>{statusText}</span></div>
+            <div className="stats-row">
+              <div className="stat-tile"><div className="st-label">Time to Target</div><div className="st-value" style={{ color: visResult.weeksToTarget ? 'var(--green)' : (isPlaying ? 'var(--text)' : 'var(--orange)') }}>{isPlaying && !visResult.weeksToTarget ? `${visTimeline.length} wk` : (visResult.weeksToTarget ? `${visResult.weeksToTarget} wk` : '> 104 wk')}</div><div className="st-sub">{visResult.weeksToTarget ? `${(visResult.weeksToTarget / 4.33).toFixed(1)} months` : `${visResult.totalEnrolled} of ${siteTargetN}`}</div></div>
+              <div className="stat-tile"><div className="st-label">Enrollment Rate</div><div className="st-value"><AnimCounter value={parseFloat(visResult.avgEnrollPerWeek)} suffix="/wk" /></div><div className="st-sub">{(visResult.avgEnrollPerWeek * 4.33).toFixed(1)}/month</div></div>
+              <div className="stat-tile"><div className="st-label">Screen Failure</div><div className="st-value" style={{ color: siteResult.screenFailRate > 50 ? 'var(--orange)' : 'var(--text)' }}><AnimCounter value={siteResult.screenFailRate} suffix="%" /></div><div className="st-sub">Avg across sites</div></div>
+              <div className="stat-tile"><div className="st-label">Active Sites</div><div className="st-value"><AnimCounter value={siteResult.activeSiteCount} /></div><div className="st-sub">of {sites.length} total</div></div>
+            </div>
+            <div className="results-grid">
+              <div className="result-card">
+                <h4>Enrollment Timeline</h4>
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                    <XAxis dataKey="week" stroke="#8c857e" tick={{ fontSize: 10 }} domain={[1, siteResult.timeline.length]} label={{ value: 'Week', position: 'insideBottom', offset: -2, style: { fontSize: 10, fill: '#8c857e' } }} />
+                    <YAxis stroke="#8c857e" tick={{ fontSize: 10 }} domain={[0, Math.ceil(siteTargetN * 1.1)]} />
+                    <RTooltip contentStyle={{ background: '#fff', border: '1px solid #d4cfca', borderRadius: 6, fontSize: 11, color: '#1e1e1e' }} formatter={(v) => [v, 'Enrolled']} labelFormatter={(w) => `Week ${w}`} />
+                    <ReferenceLine y={siteTargetN} stroke="#b07d20" strokeDasharray="6 3" label={{ value: `Target: ${siteTargetN}`, position: 'right', style: { fontSize: 10, fill: '#b07d20' } }} />
+                    <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill="rgba(176,78,48,0.12)" strokeWidth={2.5} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="result-card">
+                <h4>Site Contribution (Top {Math.min(25, waterfallData.length)})</h4>
+                <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                  {waterfallData.map(d => {
+                    const pct = maxSiteEnroll > 0 ? (d.enrolled / maxSiteEnroll) * 100 : 0;
+                    const color = d.enrolled > (siteResult.totalEnrolled / siteResult.activeSiteCount) * 1.2 ? '#2d7a50' : d.enrolled < (siteResult.totalEnrolled / siteResult.activeSiteCount) * 0.5 ? '#a63d34' : '#b07d20';
+                    return (
+                      <div key={d.id} className="wf-row">
+                        <div className="wf-label" title={d.fullName}>{d.name}</div>
+                        <div className="wf-track"><div className="wf-fill" style={{ width: `${pct}%`, background: color }} /></div>
+                        <div className="wf-val">{d.enrolled}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>}
+
+        {/* ═══ SINGLE SITE VIEW ═══ */}
+        {activeTab === 'single' && <>
+          {showWelcome.single && (
+            <div className="welcome-banner">
+              <span className="wb-icon">&#x1F52C;</span>
+              <div className="wb-text">
+                <div className="wb-title">Single Site View: Model one site's startup and patient pipeline</div>
+                <div className="wb-desc">Configure the Gantt timeline to set regulatory, legal, and operational milestones. Add referral sources and tune the patient funnel below. First Patient In (FPI) is auto-calculated from the critical path. Drill in from Multi-Site View to sync changes back.</div>
+              </div>
+              <button className="wb-close" onClick={() => setShowWelcome(p => ({ ...p, single: false }))}>&times;</button>
+            </div>
+          )}
+          <div className="ss-section">
+            <div className="ss-header">
+              <h2>Site Identity</h2>
+              {ssLinkedSiteId && <span style={{ fontSize: 10, color: 'var(--green)', fontWeight: 500 }}>Changes sync to Multi-Site table</span>}
+            </div>
+            <div className="ss-identity">
+              <div className="cfg-group"><label>Site Name</label><input type="text" value={ssIdentity.name} onChange={e => setSsIdentity(p => ({ ...p, name: e.target.value }))} /></div>
+              <div className="cfg-group"><label>Principal Investigator</label><input type="text" value={ssIdentity.piName} onChange={e => setSsIdentity(p => ({ ...p, piName: e.target.value }))} /></div>
+              <div className="cfg-group"><label>Research Coordinators</label><input type="number" min="1" value={ssIdentity.coordinatorCount} onChange={e => setSsIdentity(p => ({ ...p, coordinatorCount: Math.max(1, +e.target.value || 1) }))} /></div>
+            </div>
+
+            <GanttChart startup={ssStartup} onChange={setSsStartup} fpi={ssFPI} />
+
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 300 }}>
+                <h4 style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 10, fontWeight: 600 }}>Referral Sources</h4>
+                <div className="ref-sources">
+                  {ssReferrals.map((r, i) => (
+                    <div key={r.id} className="ref-card">
+                      <div>
+                        <input type="text" value={r.name} onChange={e => setSsReferrals(p => p.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} style={{ border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: 'var(--text)', padding: 0, width: '100%', fontFamily: 'inherit' }} />
+                        <div className="rc-vol">
+                          <input type="number" min="0" step="1" value={r.volumePerWeek} onChange={e => setSsReferrals(p => p.map((x, j) => j === i ? { ...x, volumePerWeek: Math.max(0, +e.target.value || 0) } : x))} />
+                          <span>/wk</span>
+                        </div>
+                      </div>
+                      <button className="rc-del" onClick={() => setSsReferrals(p => p.filter((_, j) => j !== i))}>&times;</button>
+                    </div>
+                  ))}
+                  <button className="source-chip" style={{ borderStyle: 'dashed', alignSelf: 'stretch' }} onClick={() => setSsReferrals(p => [...p, { id: `ref_${Date.now()}`, name: `Source ${p.length + 1}`, volumePerWeek: 2 }])}>+ Add</button>
+                </div>
+              </div>
+              <div style={{ minWidth: 200 }}>
+                <h4 style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 10, fontWeight: 600 }}>Capacity</h4>
+                <div className="capacity-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+                  <div className="cap-field"><label>Max Concurrent</label><input type="number" min="1" value={ssMaxConcurrent} onChange={e => setSsMaxConcurrent(Math.max(1, +e.target.value || 1))} /></div>
+                </div>
+              </div>
+            </div>
+
+            <h4 style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 10, marginTop: 16, fontWeight: 600 }}>Patient Funnel</h4>
+            <div className="mini-funnel">
+              {ssFunnel.map((stage, i) => {
+                const isT = stage.conversionRate >= 100;
+                return (
+                  <React.Fragment key={stage.id}>
+                    <div className={`mf-stage ${isT ? 'mf-terminal' : ''}`}>
+                      <div className="mf-name">{stage.name}</div>
+                      {!isT && <div className="mf-meta">{stage.conversionRate}% conv &middot; {stage.durationDays}d &middot; {stage.dropoutRate}% drop</div>}
+                      {isT && <div className="mf-meta" style={{ color: 'var(--green)' }}>Endpoint</div>}
+                    </div>
+                    {i < ssFunnel.length - 1 && <div className="mf-arrow"><ArrowSVG /></div>}
+                  </React.Fragment>
+                );
+              })}
+              <button className="add-stage-pill" style={{ marginLeft: 8 }} onClick={() => {
+                const termIdx = ssFunnel.findIndex(f => f.conversionRate >= 100);
+                const newStage = { id: `sf_${Date.now()}`, name: 'New Stage', conversionRate: 70, durationDays: 7, dropoutRate: 2 };
+                setSsFunnel(p => { const n = [...p]; n.splice(termIdx >= 0 ? termIdx : p.length, 0, newStage); return n; });
+              }}>+ Stage</button>
+            </div>
+            {/* Inline funnel editing */}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${ssFunnel.filter(f => f.conversionRate < 100).length}, 1fr)`, gap: 8, marginBottom: 16 }}>
+              {ssFunnel.filter(f => f.conversionRate < 100).map((stage, i) => (
+                <div key={stage.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text2)', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <input type="text" value={stage.name} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, name: e.target.value } : f))} style={{ border: 'none', background: 'none', fontSize: 10, fontWeight: 600, color: 'var(--text2)', padding: 0, width: '70%', fontFamily: 'inherit' }} />
+                    <button onClick={() => setSsFunnel(p => p.filter(f => f.id !== stage.id))} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 12, padding: '0 2px' }} title="Remove stage">&times;</button>
+                  </div>
+                  <div className="cfg-group" style={{ marginBottom: 8 }}><label>Conversion %</label><div className="slider-row"><input type="range" min="0" max="100" value={stage.conversionRate} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, conversionRate: +e.target.value } : f))} /><span className="val">{stage.conversionRate}%</span></div></div>
+                  <div className="cfg-group" style={{ marginBottom: 8 }}><label>Duration (days)</label><div className="slider-row"><input type="range" min="1" max="30" value={stage.durationDays} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, durationDays: +e.target.value } : f))} /><span className="val">{stage.durationDays}d</span></div></div>
+                  <div className="cfg-group" style={{ marginBottom: 0 }}><label>Dropout %</label><div className="slider-row"><input type="range" min="0" max="20" value={stage.dropoutRate} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, dropoutRate: +e.target.value } : f))} /><span className="val">{stage.dropoutRate}%</span></div></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="results-section">
+            <div className="results-header"><h2>Results</h2><span className="results-status" style={{ color: statusColor }}>{statusText}</span></div>
+            <div className="stats-row">
+              <div className="stat-tile"><div className="st-label">FPI Week</div><div className="st-value" style={{ color: 'var(--accent)' }}><AnimCounter value={ssFPI} /></div><div className="st-sub">First Patient In</div></div>
+              <div className="stat-tile"><div className="st-label">Total Enrolled</div><div className="st-value"><AnimCounter value={visResult.totalEnrolled} /></div><div className="st-sub">of {ssTargetN} target</div></div>
+              <div className="stat-tile"><div className="st-label">Enrollment Rate</div><div className="st-value"><AnimCounter value={parseFloat(visResult.avgEnrollPerWeek || 0)} suffix="/wk" /></div><div className="st-sub">{((visResult.avgEnrollPerWeek || 0) * 4.33).toFixed(1)}/month</div></div>
+              <div className="stat-tile"><div className="st-label">Screen Failure</div><div className="st-value"><AnimCounter value={ssResult.screenFailRate} suffix="%" /></div><div className="st-sub">Across funnel</div></div>
+            </div>
+            <div className="results-grid">
+              <div className="result-card">
+                <h4>Site Enrollment Timeline</h4>
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                    <XAxis dataKey="week" stroke="#8c857e" tick={{ fontSize: 10 }} domain={[1, ssResult.timeline.length]} label={{ value: 'Week', position: 'insideBottom', offset: -2, style: { fontSize: 10, fill: '#8c857e' } }} />
+                    <YAxis stroke="#8c857e" tick={{ fontSize: 10 }} domain={[0, Math.ceil(ssTargetN * 1.2)]} />
+                    <RTooltip contentStyle={{ background: '#fff', border: '1px solid #d4cfca', borderRadius: 6, fontSize: 11, color: '#1e1e1e' }} formatter={(v, n, p) => [v, p.payload.phase === 'startup' ? 'Startup' : 'Enrolled']} labelFormatter={(w) => `Week ${w}`} />
+                    <ReferenceLine x={ssFPI} stroke="var(--accent)" strokeDasharray="4 4" label={{ value: 'FPI', position: 'top', style: { fontSize: 10, fill: 'var(--accent)' } }} />
+                    <ReferenceLine y={ssTargetN} stroke="#b07d20" strokeDasharray="6 3" label={{ value: `Target: ${ssTargetN}`, position: 'right', style: { fontSize: 10, fill: '#b07d20' } }} />
+                    <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill="rgba(176,78,48,0.12)" strokeWidth={2.5} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="result-card">
+                <h4>Startup Summary</h4>
+                <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.8 }}>
+                  <div><strong>Regulatory:</strong> {ssStartup.regulatory.reduce((a, m) => Math.max(a, m.startWeek + m.durationWeeks), 0)} weeks</div>
+                  <div><strong>Legal:</strong> {ssStartup.legal.reduce((a, m) => Math.max(a, m.startWeek + m.durationWeeks), 0)} weeks</div>
+                  <div><strong>Operational:</strong> {ssStartup.operational.reduce((a, m) => Math.max(a, m.startWeek + m.durationWeeks), 0)} weeks</div>
+                  <div style={{ marginTop: 8, fontWeight: 600, color: 'var(--accent)' }}>Critical Path: {ssFPI - 1} weeks to FPI</div>
+                  <div style={{ marginTop: 12 }}><strong>Referral Volume:</strong> {ssReferrals.reduce((a, r) => a + r.volumePerWeek, 0)}/wk total</div>
+                  <div><strong>Effective Rate:</strong> {ssResult.effectiveRate}/wk (post-funnel)</div>
+                  <div><strong>Max Concurrent:</strong> {ssMaxConcurrent} patients</div>
+                  {ssResult.weeksToTarget && <div style={{ marginTop: 8, fontWeight: 600, color: 'var(--green)' }}>Site target met in {ssResult.weeksToTarget} weeks ({(ssResult.weeksToTarget / 4.33).toFixed(1)} months)</div>}
+                  {!ssResult.weeksToTarget && <div style={{ marginTop: 8, fontWeight: 600, color: 'var(--orange)' }}>Target not met in 104 weeks: {ssResult.totalEnrolled}/{ssTargetN}</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>}
+
+        <div className="footer">
+          <div className="footer-inner">
+            <div className="footer-org">American Institute for Medical Research</div>
+            <div className="footer-links">
+              <a href="https://aimronline.org" target="_blank" rel="noopener">AIMR Home</a>
+              <a href="https://trialibre.aimronline.org" target="_blank" rel="noopener">Trialibre</a>
+              <a href="https://trialearn.aimronline.org" target="_blank" rel="noopener">Trialearn</a>
+            </div>
+          </div>
+          <div className="footer-copy">&copy; 2026 American Institute for Medical Research. TrialSim is a non-commercial research tool.</div>
+        </div>
+      </div>
+
+      {/* Config overlay (study view only) */}
+      {activeTab === 'study' && selObj && <ConfigPanel node={selObj} nodeType={sel.type}
+        onChange={c => sel.type === 'source' ? updateSrc(sel.id, c) : updateStg(sel.id, c)}
+        onDelete={() => deleteNode(sel.id, sel.type)}
+        onClose={() => setSel(null)}
+        onRename={name => sel.type === 'source' ? updateSrc(sel.id, { name }) : updateStg(sel.id, { name })}
+      />}
+      {milestone && <MilestoneBadge key={milestone.key} milestone={milestone} />}
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

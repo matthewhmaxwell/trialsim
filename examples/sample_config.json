@@ -1,0 +1,21 @@
+{
+  "template": "phase23",
+  "sources": [
+    { "id": "site_db", "name": "Site Database", "category": "clinical", "volume": 15, "rampUpWeeks": 2, "costPerPatient": 200, "active": true },
+    { "id": "physician_ref", "name": "Physician Referral", "category": "clinical", "volume": 8, "rampUpWeeks": 4, "costPerPatient": 350, "active": true },
+    { "id": "ehr_screening", "name": "EHR/EMR Screening", "category": "clinical", "volume": 20, "rampUpWeeks": 3, "costPerPatient": 150, "active": true },
+    { "id": "digital_ads", "name": "Digital Advertising", "category": "digital", "volume": 25, "rampUpWeeks": 2, "costPerPatient": 500, "active": true },
+    { "id": "agentic_outreach", "name": "Agentic Outreach", "category": "agentic", "volume": 30, "rampUpWeeks": 1, "costPerPatient": 80, "active": true }
+  ],
+  "stages": [
+    { "id": "s1", "name": "Identified", "conversionRate": 50, "throughputPerWeek": 200, "avgDurationDays": 3, "dropoutRate": 2 },
+    { "id": "s2", "name": "Pre-screened", "conversionRate": 70, "throughputPerWeek": 120, "avgDurationDays": 7, "dropoutRate": 3 },
+    { "id": "s3", "name": "Consented", "conversionRate": 80, "throughputPerWeek": 100, "avgDurationDays": 5, "dropoutRate": 2 },
+    { "id": "s4", "name": "Screened", "conversionRate": 60, "throughputPerWeek": 80, "avgDurationDays": 14, "dropoutRate": 3 },
+    { "id": "terminal", "name": "Randomized", "conversionRate": 100, "throughputPerWeek": 999, "avgDurationDays": 0, "dropoutRate": 0 }
+  ],
+  "targetN": 300,
+  "numSites": 40,
+  "exportedAt": "2026-04-08T00:00:00.000Z",
+  "_description": "Phase 2/3 scenario with agentic outreach added. Import this file via the Import button in TrialSim."
+}
