@@ -30,11 +30,9 @@
 
   /* ── Top Bar ─────────────────────────────────────────── */
   .topbar { display: flex; align-items: center; height: 48px; padding: 0 24px; background: var(--bg2); border-bottom: 1px solid var(--border); gap: 16px; }
-  .topbar-brand { display: flex; align-items: center; gap: 10px; }
-  .topbar-brand .brand-org { font-size: 11px; font-weight: 700; color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase; }
-  .topbar-brand .brand-div { width: 1px; height: 18px; background: var(--bg4); }
+  .topbar-brand { display: flex; align-items: center; gap: 8px; }
   .topbar-brand h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
-  .topbar-brand .beta-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; background: var(--accent-bg); border: 1px solid rgba(176,78,48,0.2); font-size: 9px; font-weight: 600; color: var(--accent); letter-spacing: 0.3px; margin-left: 2px; }
+  .topbar-brand .beta-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; background: var(--accent-bg); border: 1px solid rgba(176,78,48,0.2); font-size: 9px; font-weight: 600; color: var(--accent); letter-spacing: 0.3px; }
   .topbar-sep { width: 1px; height: 20px; background: var(--bg4); flex-shrink: 0; }
   .topbar-controls { display: flex; align-items: center; gap: 8px; }
   .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -318,16 +316,7 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
   /* ── Home Page ───────────────────────────────────────── */
   .home { height: 100vh; overflow-y: auto; background: var(--bg); }
-  .home-header { display: flex; align-items: center; height: 56px; padding: 0 32px; background: var(--bg2); border-bottom: 1px solid var(--border); }
-  .home-header .hh-brand { display: flex; align-items: center; gap: 12px; }
-  .home-header .hh-org { font-size: 12px; font-weight: 700; color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase; }
-  .home-header .hh-div { width: 1px; height: 20px; background: var(--bg4); }
-  .home-header .hh-name { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-  .home-header .hh-nav { margin-left: auto; display: flex; align-items: center; gap: 20px; }
-  .home-header .hh-nav a { font-size: 13px; color: var(--text2); text-decoration: none; font-weight: 500; transition: color 0.15s; }
-  .home-header .hh-nav a:hover { color: var(--text); }
-  .home-header .hh-nav .hh-cta { padding: 6px 16px; border-radius: var(--radius); border: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text); background: var(--bg2); cursor: pointer; text-decoration: none; transition: all 0.15s; }
-  .home-header .hh-nav .hh-cta:hover { background: var(--bg3); border-color: var(--text3); }
+  /* home-header replaced by AIMR standard header */
   .home-hero { background: linear-gradient(135deg, #2c2420 0%, #4a3028 40%, #6b4535 100%); color: #fff; padding: 80px 40px 60px; text-align: center; position: relative; overflow: hidden; }
   .home-hero::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 80px; background: linear-gradient(to top, var(--bg), transparent); }
   .home-hero .hero-badge { display: inline-flex; align-items: center; padding: 4px 14px; border-radius: 20px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); font-size: 11px; font-weight: 500; margin-bottom: 20px; letter-spacing: 0.3px; }
@@ -420,13 +409,7 @@
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg2); padding: 8px 20px; border-radius: var(--radius); font-size: 12px; font-weight: 500; z-index: 100; box-shadow: var(--shadow-lg); }
-  .footer { padding: 20px 32px; border-top: 1px solid var(--bg3); }
-  .footer-inner { max-width: 900px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
-  .footer-org { font-size: 11px; font-weight: 600; color: var(--text2); }
-  .footer-links { display: flex; gap: 16px; }
-  .footer-links a { font-size: 10px; color: var(--text3); text-decoration: none; font-weight: 500; }
-  .footer-links a:hover { color: var(--text2); text-decoration: underline; }
-  .footer-copy { text-align: center; font-size: 9px; color: var(--text3); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bg3); }
+  /* footer replaced by AIMR standard footer */
 </style>
 </head>
 <body>
@@ -733,6 +716,38 @@ function simulateSingleSite(config, maxWeeks = 104) {
 // ═══════════════════════════════════════════════════════════════════════
 // SHARED COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════
+
+// ─── AIMR Standard Header & Footer ───────────────────────────────────
+function AIMRHeader() {
+  return (
+    <header style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(8px)', borderBottom: '1px solid #e5e7eb' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
+        <a href="https://aimronline.org" style={{ textDecoration: 'none' }}>
+          <img src="https://aimronline.org/aimr-logo.png" alt="AIM Research" style={{ height: 36 }} />
+        </a>
+        <nav style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+          <a href="https://aimronline.org/about.html" style={{ fontFamily: 'Inter,sans-serif', fontSize: '0.9rem', fontWeight: 500, color: '#4b5563', textDecoration: 'none' }}>About</a>
+          <a href="https://aimronline.org/tools.html" style={{ fontFamily: 'Inter,sans-serif', fontSize: '0.9rem', fontWeight: 500, color: '#4b5563', textDecoration: 'none' }}>Tools</a>
+          <a href="https://aimronline.org/notes.html" style={{ fontFamily: 'Inter,sans-serif', fontSize: '0.9rem', fontWeight: 500, color: '#4b5563', textDecoration: 'none' }}>Notes</a>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+function AIMRFooter() {
+  return (
+    <footer style={{ background: '#0f0a1e', color: 'rgba(255,255,255,0.6)', padding: '2.5rem 0', fontSize: '0.85rem', fontFamily: 'Inter,sans-serif' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <span>&copy; 2026 American Institute for Medical Research, LLC</span>
+        <div style={{ display: 'flex', gap: '1.5rem' }}>
+          <a href="https://www.linkedin.com/company/aimronline" target="_blank" rel="noopener" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>LinkedIn</a>
+          <a href="https://aimronline.org/about.html#privacy" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Privacy</a>
+        </div>
+      </div>
+    </footer>
+  );
+}
 
 function ArrowSVG() {
   return <svg viewBox="0 0 24 14" fill="none"><path d="M0 7H20M20 7L15 2M20 7L15 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
@@ -1276,20 +1291,7 @@ function App() {
   if (activeTab === 'home') {
     return (
       <div className="home">
-        {/* Header */}
-        <div className="home-header">
-          <div className="hh-brand">
-            <span className="hh-org">AIM Research</span>
-            <span className="hh-div" />
-            <span className="hh-name">TrialSim</span>
-          </div>
-          <div className="hh-nav">
-            <a href="#" onClick={e => { e.preventDefault(); setActiveTab('tutorial'); }}>Guide</a>
-            <a href="https://trialibre.aimronline.org" target="_blank" rel="noopener">Trialibre</a>
-            <a href="https://trialearn.aimronline.org" target="_blank" rel="noopener">Trialearn</a>
-            <a className="hh-cta" href="#" onClick={e => { e.preventDefault(); setActiveTab('study'); }}>Launch Simulator</a>
-          </div>
-        </div>
+        <AIMRHeader />
         {/* Hero */}
         <div className="home-hero">
           <div className="hero-badge">Beta &middot; Free &middot; Non-Commercial</div>
@@ -1424,26 +1426,17 @@ function App() {
         </div>
 
         {/* Footer */}
-        <div className="footer">
-          <div className="footer-inner">
-            <div className="footer-org">American Institute for Medical Research</div>
-            <div className="footer-links">
-              <a href="https://aimronline.org" target="_blank" rel="noopener">AIMR Home</a>
-              <a href="https://trialibre.aimronline.org" target="_blank" rel="noopener">Trialibre</a>
-              <a href="https://trialearn.aimronline.org" target="_blank" rel="noopener">Trialearn</a>
-            </div>
-          </div>
-          <div className="footer-copy">&copy; 2026 American Institute for Medical Research. TrialSim is a non-commercial research tool.</div>
-        </div>
+        <AIMRFooter />
       </div>
     );
   }
 
   return (
     <div className="app">
-      {/* ── Top Bar ── */}
+      <AIMRHeader />
+      {/* ── App Toolbar ── */}
       <div className="topbar">
-        <div className="topbar-brand"><span className="brand-org" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('home')}>AIM Research</span><span className="brand-div" /><h1 style={{ cursor: 'pointer' }} onClick={() => setActiveTab('home')}>TrialSim</h1><span className="beta-badge">Beta</span></div>
+        <div className="topbar-brand"><h1 style={{ cursor: 'pointer' }} onClick={() => setActiveTab('home')}>TrialSim</h1><span className="beta-badge">Beta</span></div>
         <div className="topbar-sep" />
         <div className="topbar-controls">
           {activeTab === 'tutorial' && <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Getting started with TrialSim</span>}
@@ -1917,17 +1910,7 @@ function App() {
           </div>
         </>}
 
-        <div className="footer">
-          <div className="footer-inner">
-            <div className="footer-org">American Institute for Medical Research</div>
-            <div className="footer-links">
-              <a href="https://aimronline.org" target="_blank" rel="noopener">AIMR Home</a>
-              <a href="https://trialibre.aimronline.org" target="_blank" rel="noopener">Trialibre</a>
-              <a href="https://trialearn.aimronline.org" target="_blank" rel="noopener">Trialearn</a>
-            </div>
-          </div>
-          <div className="footer-copy">&copy; 2026 American Institute for Medical Research. TrialSim is a non-commercial research tool.</div>
-        </div>
+        <AIMRFooter />
       </div>
 
       {/* Config overlay (study view only) */}
