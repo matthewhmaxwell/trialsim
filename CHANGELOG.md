@@ -1,4 +1,4 @@
-# TrialSim Changelog
+# Trialsim Changelog
 
 ## V1 Save Point (2026-04-08)
 

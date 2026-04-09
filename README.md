@@ -1,16 +1,16 @@
-# TrialSim
+# Trialsim
 
 **Interactive clinical trial enrollment simulator**
 
 Model how different recruitment strategies, site configurations, and protocol designs affect your enrollment timeline. Built by the [American Institute for Medical Research](https://aimronline.org).
 
-**[Launch TrialSim](https://trialsim.aimronline.org)**
+**[Launch Trialsim](https://trialsim.aimronline.org)**
 
 ---
 
-## What is TrialSim?
+## What is Trialsim?
 
-TrialSim is a browser-based enrollment simulator for clinical trials. It helps sponsors, CROs, and research teams answer questions like:
+Trialsim is a browser-based enrollment simulator for clinical trials. It helps sponsors, CROs, and research teams answer questions like:
 
 - "If we use these recruitment sources with these conversion rates, when do we hit our enrollment target?"
 - "Given these 40 sites with these rates, when do we finish?"

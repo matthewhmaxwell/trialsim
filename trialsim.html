@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TrialSim — AIMR</title>
+<title>Trialsim — AIMR</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -1295,7 +1295,7 @@ function App() {
         {/* Hero */}
         <div className="home-hero">
           <div className="hero-badge">Beta &middot; Free &middot; Non-Commercial</div>
-          <h1>TrialSim</h1>
+          <h1>Trialsim</h1>
           <p className="hero-sub">Interactive enrollment simulation for clinical trials. Model how different recruitment strategies, site configurations, and protocol designs affect your enrollment timeline.</p>
           <button className="hero-cta" onClick={() => setActiveTab('study')}>Launch Simulator &rarr;</button>
           <button className="hero-sec" onClick={() => { document.getElementById('home-how').scrollIntoView({ behavior: 'smooth' }); }}>See How It Works</button>
@@ -1436,10 +1436,10 @@ function App() {
       <AIMRHeader />
       {/* ── App Toolbar ── */}
       <div className="topbar">
-        <div className="topbar-brand"><h1 style={{ cursor: 'pointer' }} onClick={() => setActiveTab('home')}>TrialSim</h1><span className="beta-badge">Beta</span></div>
+        <div className="topbar-brand"><h1 style={{ cursor: 'pointer' }} onClick={() => setActiveTab('home')}>Trialsim</h1><span className="beta-badge">Beta</span></div>
         <div className="topbar-sep" />
         <div className="topbar-controls">
-          {activeTab === 'tutorial' && <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Getting started with TrialSim</span>}
+          {activeTab === 'tutorial' && <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Getting started with Trialsim</span>}
           {activeTab === 'study' && <>
             <select value={template} onChange={e => { if (!confirm('Switch template? Current configuration will be replaced.')) return; setTemplate(e.target.value); loadTemplate(e.target.value); }}>
               {Object.entries(TEMPLATES).map(([k, v]) => <option key={k} value={k}>{v.name} {'\u2014'} {v.desc}</option>)}
@@ -1498,7 +1498,7 @@ function App() {
         {/* ═══ TUTORIAL ═══ */}
         {activeTab === 'tutorial' && (
           <div className="tutorial-page">
-            <h2>Welcome to TrialSim</h2>
+            <h2>Welcome to Trialsim</h2>
             <p className="tp-sub">An interactive enrollment simulator for clinical trials. Model how different recruitment strategies, site configurations, and protocol designs affect your enrollment timeline and budget.</p>
 
             <div className="concept-grid">
@@ -1508,7 +1508,7 @@ function App() {
               </div>
               <div className="concept-card">
                 <h4><span className="cc-icon">&#x23F1;</span> Everything is about time</h4>
-                <p>The core question is: <strong>how many weeks to reach your target enrollment?</strong> Every parameter you change (source volume, conversion rates, site count, startup timelines) shifts that answer. TrialSim recalculates instantly.</p>
+                <p>The core question is: <strong>how many weeks to reach your target enrollment?</strong> Every parameter you change (source volume, conversion rates, site count, startup timelines) shifts that answer. Trialsim recalculates instantly.</p>
               </div>
               <div className="concept-card">
                 <h4><span className="cc-icon">&#x1F4CA;</span> Three levels of detail</h4>
@@ -1593,7 +1593,7 @@ function App() {
             <hr />
 
             <p style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 11, marginTop: 20 }}>
-              TrialSim is developed by the <a href="https://aimronline.org" target="_blank" rel="noopener" style={{ color: 'var(--text2)' }}>American Institute for Medical Research</a>, a non-profit organization.
+              Trialsim is developed by the <a href="https://aimronline.org" target="_blank" rel="noopener" style={{ color: 'var(--text2)' }}>American Institute for Medical Research</a>, a non-profit organization.
             </p>
           </div>
         )}
