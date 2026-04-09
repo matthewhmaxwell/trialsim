@@ -525,10 +525,17 @@ const SITE_SCENARIOS = {
 
 // Study-level simulation (unchanged)
 function simulate(sources, stages, targetN, maxWeeks = 104) {
-  const timeline = [], stageQueues = stages.map(() => 0), stageUtilization = stages.map(() => []);
+  const timeline = [], stageUtilization = stages.map(() => []);
   let totalEnrolled = 0;
   const sourceContrib = {};
   sources.forEach(s => { if (s.active !== false) sourceContrib[s.id] = 0; });
+  if (stages.length === 0) return { timeline: [], stageUtilization: [], sourcePercents: {}, totalEnrolled: 0, weeksToTarget: null, avgEnrollPerWeek: 0, screenFailRate: 0, costPerEnrolled: 0, totalCost: 0 };
+  // Dwell time model: each stage has a delay buffer (ring of weekly slots)
+  // Patients enter slot 0, shift right each week. Only patients who've dwelled long enough are eligible for processing.
+  const stageDelayBuffers = stages.map(stage => {
+    const dwellWeeks = Math.max(1, Math.ceil((stage.avgDurationDays || 1) / 7));
+    return { slots: new Array(dwellWeeks).fill(0), ready: 0 };
+  });
   for (let week = 0; week < maxWeeks && totalEnrolled < targetN; week++) {
     let weeklyInflow = 0;
     sources.forEach(s => {
@@ -537,17 +544,30 @@ function simulate(sources, stages, targetN, maxWeeks = 104) {
       weeklyInflow += vol;
       sourceContrib[s.id] = (sourceContrib[s.id] || 0) + vol;
     });
-    stageQueues[0] += weeklyInflow;
+    // Add new patients to first stage's delay buffer entry slot
+    stageDelayBuffers[0].slots[0] += weeklyInflow;
     for (let i = 0; i < stages.length; i++) {
-      const stage = stages[i], queue = stageQueues[i];
-      const processed = Math.min(queue, stage.throughputPerWeek);
-      stageUtilization[i].push(Math.min(stage.throughputPerWeek > 0 ? queue / stage.throughputPerWeek : 0, 2));
-      const advanced = Math.round(Math.round(processed * (1 - (stage.dropoutRate || 0) / 100)) * (stage.conversionRate / 100));
-      stageQueues[i] = queue - processed;
-      if (i < stages.length - 1) stageQueues[i + 1] += advanced;
-      else totalEnrolled += Math.min(advanced, targetN - totalEnrolled);
+      const stage = stages[i];
+      const buf = stageDelayBuffers[i];
+      // Advance the delay buffer: patients in last slot become ready
+      buf.ready += buf.slots[buf.slots.length - 1];
+      // Shift all slots right (aging patients through dwell time)
+      for (let k = buf.slots.length - 1; k > 0; k--) buf.slots[k] = buf.slots[k - 1];
+      buf.slots[0] = 0; // clear entry slot for next week's arrivals
+      // Process ready patients (capped by throughput)
+      const processed = Math.min(buf.ready, stage.throughputPerWeek);
+      const totalInStage = buf.ready + buf.slots.reduce((a, b) => a + b, 0);
+      stageUtilization[i].push(Math.min(stage.throughputPerWeek > 0 ? totalInStage / stage.throughputPerWeek : 0, 2));
+      const advanced = Math.round(processed * (1 - (stage.dropoutRate || 0) / 100) * (stage.conversionRate / 100));
+      buf.ready -= processed;
+      if (i < stages.length - 1) {
+        stageDelayBuffers[i + 1].slots[0] += advanced;
+      } else {
+        totalEnrolled += Math.min(advanced, targetN - totalEnrolled);
+      }
     }
-    timeline.push({ week: week + 1, enrolled: totalEnrolled, weeklyInflow, queues: [...stageQueues] });
+    const totalQueued = stageDelayBuffers.map(b => b.ready + b.slots.reduce((a, v) => a + v, 0));
+    timeline.push({ week: week + 1, enrolled: totalEnrolled, weeklyInflow, queues: totalQueued });
   }
   const totalSrc = Object.values(sourceContrib).reduce((a, b) => a + b, 0) || 1;
   const sourcePercents = {}; Object.entries(sourceContrib).forEach(([id, v]) => { sourcePercents[id] = Math.round((v / totalSrc) * 100); });
@@ -676,13 +696,18 @@ function simulateSingleSite(config, maxWeeks = 104) {
   const fpi = computeFPI(config.startup);
   const targetN = config.targetN || 20;
   const timeline = [];
-  let totalEnrolled = 0, concurrent = 0;
+  let totalEnrolled = 0;
   const totalRefVol = config.referrals.reduce((a, r) => a + r.volumePerWeek, 0);
+  // FIFO capacity model: track when each enrolled patient's treatment ends
+  const treatmentDuration = 12; // weeks average treatment/follow-up duration
+  const activePatients = []; // array of end-weeks
 
   for (let week = 0; week < maxWeeks; week++) {
     if (totalEnrolled >= targetN) break;
     const weekNum = week + 1;
     let weeklyEnrolled = 0;
+    // Release patients whose treatment has ended
+    while (activePatients.length > 0 && activePatients[0] <= weekNum) activePatients.shift();
     if (weekNum >= fpi) {
       let candidates = totalRefVol;
       for (const stage of config.funnel) {
@@ -691,13 +716,13 @@ function simulateSingleSite(config, maxWeeks = 104) {
       }
       // Coordinator FTEs scale effective capacity: ~8 concurrent patients per coordinator
       const effCapacity = config.coordinatorFTEs ? Math.min(config.maxConcurrent || 999, config.coordinatorFTEs * 8) : (config.maxConcurrent || 999);
-      const capacityLeft = Math.max(0, effCapacity - concurrent);
+      const capacityLeft = Math.max(0, effCapacity - activePatients.length);
       weeklyEnrolled = Math.min(candidates, capacityLeft, targetN - totalEnrolled);
       weeklyEnrolled = Math.max(0, +weeklyEnrolled.toFixed(2));
       totalEnrolled += weeklyEnrolled;
-      concurrent = Math.min(concurrent + weeklyEnrolled, config.maxConcurrent || 999);
-      // Simple concurrent decay — patients leave after ~8 weeks on average
-      if (concurrent > weeklyEnrolled) concurrent = Math.max(weeklyEnrolled, concurrent * 0.88);
+      // Add enrolled patients to FIFO with their treatment end week
+      const patientsToAdd = Math.round(weeklyEnrolled);
+      for (let p = 0; p < patientsToAdd; p++) activePatients.push(weekNum + treatmentDuration);
     }
     timeline.push({ week: weekNum, enrolled: Math.round(totalEnrolled), weeklyNew: +weeklyEnrolled.toFixed(1), phase: weekNum < fpi ? 'startup' : 'enrollment' });
   }
@@ -1121,28 +1146,27 @@ function App() {
       setAnimFrame(prev => { const next = (prev ?? 0) + 1; if (next >= n) { clearInterval(animRef.current); setIsPlaying(false); return null; } return next; });
     }, speed);
     return () => { if (animRef.current) clearInterval(animRef.current); };
-  }, [isPlaying, currentTimeline.length, playSpeed]);
-
-  // Milestone detection during playback
-  useEffect(() => {
-    if (animFrame === null || !isPlaying) return;
-    const enrolled = visTimeline.length > 0 ? visTimeline[visTimeline.length - 1].enrolled : 0;
-    const pct = Math.round((enrolled / targetForTab) * 100);
-    const thresholds = [25, 50, 75, 100];
-    for (const t of thresholds) {
-      if (pct >= t && !milestonesHit.current.has(t)) {
-        milestonesHit.current.add(t);
-        const week = visTimeline.length;
-        setMilestone({ pct: t, week, key: `${t}_${Date.now()}` });
-      }
-    }
-  }, [animFrame]);
+  }, [isPlaying, currentTimeline.length, playSpeed, activeTab]);
 
   // Stop animation on config change
   useEffect(() => { setIsPlaying(false); setAnimFrame(null); setMilestone(null); }, [sources, stages, targetN, sites, siteTargetN, ssConfig]);
 
   const visTimeline = animFrame !== null ? currentTimeline.slice(0, animFrame + 1) : currentTimeline;
   const targetForTab = activeTab === 'study' ? targetN : activeTab === 'site' ? siteTargetN : ssTargetN;
+
+  // Milestone detection during playback (after visTimeline/targetForTab are defined)
+  useEffect(() => {
+    if (animFrame === null || !isPlaying) return;
+    const enrolled = visTimeline.length > 0 ? visTimeline[visTimeline.length - 1].enrolled : 0;
+    const pct = targetForTab > 0 ? Math.round((enrolled / targetForTab) * 100) : 0;
+    const thresholds = [25, 50, 75, 100];
+    for (const t of thresholds) {
+      if (pct >= t && !milestonesHit.current.has(t)) {
+        milestonesHit.current.add(t);
+        setMilestone({ pct: t, week: visTimeline.length, key: `${t}_${Date.now()}` });
+      }
+    }
+  }, [animFrame, isPlaying, visTimeline, targetForTab]);
   const visResult = animFrame !== null ? {
     ...currentResult,
     totalEnrolled: visTimeline.length > 0 ? visTimeline[visTimeline.length - 1].enrolled : 0,
