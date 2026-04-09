@@ -585,6 +585,7 @@ function simulate(sources, stages, targetN, maxWeeks = 104) {
 
 // Site-level simulation
 function simulateSites(sites, targetN, maxWeeks = 104) {
+  if (!sites.length || !targetN) return { timeline: [], perSiteTotal: {}, totalEnrolled: 0, weeksToTarget: null, avgEnrollPerWeek: 0, screenFailRate: 0, activeSiteCount: 0 };
   const timeline = [];
   let totalEnrolled = 0;
   const perSiteTotal = {};
@@ -695,6 +696,7 @@ function computeFPI(startup) {
 function simulateSingleSite(config, maxWeeks = 104) {
   const fpi = computeFPI(config.startup);
   const targetN = config.targetN || 20;
+  if (!config.referrals || !config.referrals.length || !config.funnel || !config.funnel.length) return { timeline: [], fpi, totalEnrolled: 0, targetN, weeksToTarget: null, avgEnrollPerWeek: 0, screenFailRate: 0, effectiveRate: 0 };
   const timeline = [];
   let totalEnrolled = 0;
   const totalRefVol = config.referrals.reduce((a, r) => a + r.volumePerWeek, 0);
@@ -1186,7 +1188,8 @@ function App() {
   const addCustomSource = () => { const name = prompt('Source name:', `Custom Source ${customSrcN}`); if (!name) return; setSources(p => [...p, { id: `c_${Date.now()}`, name, category: 'clinical', volume: 10, rampUpWeeks: 2, costPerPatient: 200, active: true }]); setCustomSrcN(n => n + 1); };
   const addStage = () => { const name = prompt('Stage name:', `Stage ${customStgN}`); if (!name) return; setStages(p => { const ns = [...p]; const ti = ns.findIndex(s => s.id === 'terminal'); ns.splice(ti, 0, { id: `stg_${Date.now()}`, name, conversionRate: 70, throughputPerWeek: 100, avgDurationDays: 7, dropoutRate: 2 }); return ns; }); setCustomStgN(n => n + 1); };
   const deleteNode = (id, type) => { if (type === 'source') setSources(p => p.filter(s => s.id !== id)); else setStages(p => p.filter(s => s.id !== id)); setSel(null); };
-  const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
+  const toastTimerRef = useRef(null);
+  const showToast = (m) => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); setToast(m); toastTimerRef.current = setTimeout(() => setToast(null), 2500); };
 
   const exportConfig = () => {
     const config = { template, sources, stages, targetN, numSites, sites, siteTargetN, siteScenario, ssIdentity, ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssTargetN, exportedAt: new Date().toISOString() };
@@ -1197,42 +1200,66 @@ function App() {
     const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
     inp.onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try {
       const c = JSON.parse(ev.target.result);
-      if (c.sources) setSources(c.sources); if (c.stages) setStages(c.stages);
-      if (c.targetN) setTargetN(c.targetN); if (c.numSites) setNumSites(c.numSites);
-      if (c.sites) setSites(c.sites); if (c.siteTargetN) setSiteTargetN(c.siteTargetN);
-      if (c.ssIdentity) setSsIdentity(c.ssIdentity); if (c.ssStartup) setSsStartup(c.ssStartup);
-      if (c.ssReferrals) setSsReferrals(c.ssReferrals); if (c.ssFunnel) setSsFunnel(c.ssFunnel);
-      if (c.ssMaxConcurrent) setSsMaxConcurrent(c.ssMaxConcurrent); if (c.ssTargetN) setSsTargetN(c.ssTargetN);
+      // Schema validation: check array types before setting state
+      if (c.sources && Array.isArray(c.sources)) setSources(c.sources);
+      if (c.stages && Array.isArray(c.stages) && c.stages.length > 0) setStages(c.stages);
+      if (c.targetN && typeof c.targetN === 'number' && c.targetN > 0) setTargetN(c.targetN);
+      if (c.numSites && typeof c.numSites === 'number') setNumSites(c.numSites);
+      if (c.sites && Array.isArray(c.sites)) setSites(c.sites);
+      if (c.siteTargetN && typeof c.siteTargetN === 'number' && c.siteTargetN > 0) setSiteTargetN(c.siteTargetN);
+      if (c.ssIdentity && typeof c.ssIdentity === 'object' && c.ssIdentity.name) setSsIdentity(c.ssIdentity);
+      if (c.ssStartup && typeof c.ssStartup === 'object' && c.ssStartup.regulatory) setSsStartup(c.ssStartup);
+      if (c.ssReferrals && Array.isArray(c.ssReferrals)) setSsReferrals(c.ssReferrals);
+      if (c.ssFunnel && Array.isArray(c.ssFunnel) && c.ssFunnel.length > 0) setSsFunnel(c.ssFunnel);
+      if (c.ssMaxConcurrent && typeof c.ssMaxConcurrent === 'number') setSsMaxConcurrent(c.ssMaxConcurrent);
+      if (c.ssTargetN && typeof c.ssTargetN === 'number' && c.ssTargetN > 0) setSsTargetN(c.ssTargetN);
       showToast('Config imported');
-    } catch { showToast('Invalid file'); } }; r.readAsText(f); }; inp.click();
+    } catch (err) { showToast('Invalid file: ' + err.message); } }; r.readAsText(f); }; inp.click();
+  };
+  // CSV parser that handles quoted fields (e.g. "Memorial Sloan Kettering, NY")
+  const parseCSVLine = (line) => {
+    const cols = []; let cur = '', inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { cols.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    cols.push(cur.trim());
+    return cols;
   };
   const importCSV = () => {
     const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv';
     inp.onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = ev => {
-      const lines = ev.target.result.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length < 2) { showToast('CSV needs a header + data rows'); return; }
-      const hdr = lines[0].toLowerCase().split(',').map(h => h.trim());
-      const nameIdx = hdr.findIndex(h => h.includes('name') || h.includes('site'));
-      const rateIdx = hdr.findIndex(h => h.includes('rate') || h.includes('enroll'));
-      const actIdx = hdr.findIndex(h => h.includes('activ') || h.includes('start'));
-      const sfIdx = hdr.findIndex(h => h.includes('screen') || h.includes('fail'));
-      const doIdx = hdr.findIndex(h => h.includes('drop'));
-      const capIdx = hdr.findIndex(h => h.includes('cap'));
-      const newSites = lines.slice(1).map((line, i) => {
-        const cols = line.split(',').map(c => c.trim());
-        return {
-          id: `csv_${Date.now()}_${i}`,
-          name: nameIdx >= 0 ? cols[nameIdx] : `Site ${i + 1}`,
-          enrollmentRate: rateIdx >= 0 ? +(+cols[rateIdx] || 1).toFixed(1) : 1.0,
-          activationWeek: actIdx >= 0 ? Math.max(1, +cols[actIdx] || 1) : 1,
-          screenFailRate: sfIdx >= 0 ? Math.min(100, Math.max(0, +cols[sfIdx] || 30)) : 30,
-          dropoutRate: doIdx >= 0 ? Math.min(100, Math.max(0, +cols[doIdx] || 3)) : 3,
-          cap: capIdx >= 0 && cols[capIdx] ? +cols[capIdx] : null,
-          active: true,
-        };
-      });
-      setSites(newSites);
-      showToast(`Imported ${newSites.length} sites`);
+      try {
+        const lines = ev.target.result.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length < 2) { showToast('CSV needs a header + data rows'); return; }
+        const hdr = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+        const nameIdx = hdr.findIndex(h => h.includes('name') || h.includes('site'));
+        const rateIdx = hdr.findIndex(h => h.includes('rate') || h.includes('enroll'));
+        const actIdx = hdr.findIndex(h => h.includes('activ') || h.includes('start'));
+        const sfIdx = hdr.findIndex(h => h.includes('screen') || h.includes('fail'));
+        const doIdx = hdr.findIndex(h => h.includes('drop'));
+        const capIdx = hdr.findIndex(h => h.includes('cap'));
+        let skipped = 0;
+        const newSites = lines.slice(1).map((line, i) => {
+          const cols = parseCSVLine(line);
+          if (cols.length < 2) { skipped++; return null; } // skip malformed rows
+          return {
+            id: `csv_${Date.now()}_${i}`,
+            name: nameIdx >= 0 && cols[nameIdx] ? cols[nameIdx] : `Site ${i + 1}`,
+            enrollmentRate: rateIdx >= 0 ? +(Math.max(0, +cols[rateIdx] || 1)).toFixed(1) : 1.0,
+            activationWeek: actIdx >= 0 ? Math.max(1, +cols[actIdx] || 1) : 1,
+            screenFailRate: sfIdx >= 0 ? Math.min(100, Math.max(0, +cols[sfIdx] || 30)) : 30,
+            dropoutRate: doIdx >= 0 ? Math.min(100, Math.max(0, +cols[doIdx] || 3)) : 3,
+            cap: capIdx >= 0 && cols[capIdx] && +cols[capIdx] > 0 ? +cols[capIdx] : null,
+            active: true,
+          };
+        }).filter(Boolean);
+        if (!newSites.length) { showToast('No valid rows found in CSV'); return; }
+        setSites(newSites);
+        showToast(`Imported ${newSites.length} sites${skipped ? ` (${skipped} rows skipped)` : ''}`);
+      } catch (err) { showToast('Error parsing CSV: ' + err.message); }
     }; r.readAsText(f); }; inp.click();
   };
 
