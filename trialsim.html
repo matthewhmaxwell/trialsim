@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trialsim — AIMR</title>
+<meta name="description" content="Interactive clinical trial enrollment simulator. Model recruitment strategies, site portfolios, and startup timelines. Free, no login required.">
+<meta property="og:title" content="Trialsim — Clinical Trial Enrollment Simulator">
+<meta property="og:description" content="Model how different recruitment strategies, site configurations, and protocol designs affect your enrollment timeline. Free tool from the American Institute for Medical Research.">
+<meta property="og:image" content="https://aimronline.org/aimr-logo.png">
+<meta property="og:url" content="https://trialsim.aimronline.org">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" type="image/png" href="https://aimronline.org/aimr-logo.png">
+<link rel="apple-touch-icon" href="https://aimronline.org/aimr-logo.png">
+<script defer data-domain="trialsim.aimronline.org" src="https://plausible.io/js/script.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -326,6 +336,41 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
   /* ── Home Page ───────────────────────────────────────── */
   .home { height: 100vh; overflow-y: auto; background: var(--bg); }
+  /* ── Mobile Responsive ───────────────────────────────── */
+  .mobile-notice { display: none; background: var(--accent-bg); border: 1px solid rgba(176,78,48,0.2); border-radius: var(--radius); padding: 10px 16px; margin: 12px 16px; font-size: 11px; color: var(--text2); text-align: center; line-height: 1.5; }
+  .mobile-notice strong { color: var(--accent); }
+  @media (max-width: 768px) {
+    .mobile-notice { display: block; }
+    .topbar { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 8px; }
+    .topbar-controls { flex-wrap: wrap; }
+    .topbar-right { flex-wrap: wrap; }
+    .tab-bar { overflow-x: auto; padding: 0 12px; }
+    .tab-btn { padding: 0 10px; font-size: 11px; white-space: nowrap; }
+    .tab-btn .tab-sub { display: none; }
+    .pipeline-section, .site-section, .ss-section, .results-section { padding-left: 16px; padding-right: 16px; }
+    .pipeline-canvas { flex-direction: column; align-items: stretch; }
+    .source-stack { min-width: auto; margin-right: 0; margin-bottom: 8px; }
+    .merge-connector { transform: rotate(90deg); width: auto; height: 32px; }
+    .stage-pipeline { flex-wrap: wrap; gap: 4px; }
+    .stage-card { min-width: 120px; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .delta-row { grid-template-columns: repeat(2, 1fr); }
+    .results-grid { grid-template-columns: 1fr; }
+    .template-cards { grid-template-columns: repeat(2, 1fr); }
+    .home-features { grid-template-columns: 1fr; }
+    .home-views { grid-template-columns: 1fr; }
+    .home-how { grid-template-columns: repeat(2, 1fr); }
+    .home-hero h1 { font-size: 28px; }
+    .home-hero .hero-sub { font-size: 14px; }
+    .home-stats-bar { flex-wrap: wrap; gap: 20px; padding: 16px 20px; }
+    .concept-grid { grid-template-columns: 1fr; }
+    .view-cards { grid-template-columns: 1fr; }
+    .site-table-wrap { overflow-x: auto; }
+    .gantt-wrap { overflow-x: auto; }
+    .ss-identity { grid-template-columns: 1fr; }
+    .config-overlay { width: 100%; }
+  }
+
   /* home-header replaced by AIMR standard header */
   .home-hero { background: linear-gradient(135deg, #2c2420 0%, #4a3028 40%, #6b4535 100%); color: #fff; padding: 80px 40px 60px; text-align: center; position: relative; overflow: hidden; }
   .home-hero::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 80px; background: linear-gradient(to top, var(--bg), transparent); }
@@ -1350,6 +1395,12 @@ function App() {
     showToast(`Editing ${s.name} in detail`);
   };
 
+  // ── Dynamic page title ──
+  useEffect(() => {
+    const titles = { home: 'Trialsim — Clinical Trial Enrollment Simulator', study: 'Study View — Trialsim', site: 'Multi-Site View — Trialsim', single: 'Single Site View — Trialsim', tutorial: 'Guide — Trialsim' };
+    document.title = titles[activeTab] || 'Trialsim — AIMR';
+  }, [activeTab]);
+
   // ── Home Page ──
   if (activeTab === 'home') {
     return (
@@ -1497,6 +1548,7 @@ function App() {
   return (
     <div className="app">
       <AIMRHeader />
+      <div className="mobile-notice"><strong>Best on desktop.</strong> Trialsim is optimized for larger screens. Some features may be hard to use on mobile.</div>
       {/* ── App Toolbar ── */}
       <div className="topbar">
         <div className="topbar-brand"><h1 style={{ cursor: 'pointer' }} onClick={() => setActiveTab('home')}>Trialsim</h1><span className="beta-badge">Beta</span></div>
@@ -2015,7 +2067,30 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return React.createElement('div', { style: { padding: 60, textAlign: 'center', fontFamily: 'Inter, sans-serif', color: '#1e1e1e' } },
+        React.createElement('h2', { style: { fontSize: 20, marginBottom: 12 } }, 'Something went wrong'),
+        React.createElement('p', { style: { fontSize: 13, color: '#5c5650', marginBottom: 20, lineHeight: 1.6 } }, 'Trialsim encountered an unexpected error. This is usually caused by a malformed import file or an edge case in the simulation.'),
+        React.createElement('button', {
+          onClick: () => { this.setState({ hasError: false, error: null }); },
+          style: { padding: '8px 20px', borderRadius: 6, border: '1px solid #d4cfca', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', marginRight: 8 }
+        }, 'Try Again'),
+        React.createElement('button', {
+          onClick: () => { window.location.reload(); },
+          style: { padding: '8px 20px', borderRadius: 6, border: 'none', background: '#b04e30', color: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }
+        }, 'Reload Page'),
+        React.createElement('p', { style: { fontSize: 10, color: '#8c857e', marginTop: 16 } }, String(this.state.error))
+      );
+    }
+    return this.props.children;
+  }
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<ErrorBoundary><App /></ErrorBoundary>);
 </script>
 </body>
 </html>
