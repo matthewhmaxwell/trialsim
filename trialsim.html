@@ -150,6 +150,16 @@
   .sb-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
   .sb-val { font-size: 10px; color: var(--text3); width: 32px; font-weight: 500; }
   .cmp-legend { display: flex; gap: 14px; align-items: center; margin-bottom: 6px; font-size: 10px; color: var(--text3); font-weight: 500; }
+  .delta-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .delta-tile { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
+  .delta-tile .dt-arrow { font-size: 14px; }
+  .delta-tile .dt-val { font-size: 13px; font-weight: 700; }
+  .delta-tile .dt-label { font-size: 9px; color: var(--text3); font-weight: 500; }
+  .delta-tile.dt-better { border-color: rgba(45,122,80,0.25); background: var(--green-bg); }
+  .delta-tile.dt-better .dt-val { color: var(--green); }
+  .delta-tile.dt-worse { border-color: rgba(166,61,52,0.2); background: rgba(166,61,52,0.04); }
+  .delta-tile.dt-worse .dt-val { color: var(--red); }
+  .delta-tile.dt-neutral .dt-val { color: var(--text3); }
   .cmp-leg { display: flex; align-items: center; gap: 4px; }
   .cmp-line { width: 16px; height: 2px; }
   .cmp-dash { width: 16px; height: 2px; background: repeating-linear-gradient(90deg, var(--text3) 0, var(--text3) 3px, transparent 3px, transparent 6px); }
@@ -1059,6 +1069,7 @@ function App() {
   const [sel, setSel] = useState(null);
   const [prevResult, setPrevResult] = useState(null);
   const [compareOn, setCompareOn] = useState(false);
+  const [snapshotName, setSnapshotName] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [customSrcN, setCustomSrcN] = useState(1);
   const [customStgN, setCustomStgN] = useState(1);
@@ -1524,7 +1535,7 @@ function App() {
             </div>
           )}
           {activeTab === 'study' && <>
-            <button className="btn" onClick={() => { setPrevResult(result); setCompareOn(true); showToast('Baseline saved'); }}>Snapshot</button>
+            <button className="btn" onClick={() => { const name = prompt('Name this scenario snapshot:', 'Baseline'); if (name === null) return; setPrevResult(result); setSnapshotName(name || 'Baseline'); setCompareOn(true); showToast(`Snapshot saved: ${name || 'Baseline'}`); }}>Snapshot</button>
             {compareOn && <button className="btn" onClick={() => setCompareOn(false)} style={{ color: 'var(--orange)' }}>Clear</button>}
           </>}
           <div className="topbar-sep" />
@@ -1730,10 +1741,36 @@ function App() {
               <div className="stat-tile"><div className="st-label">Screen Failure</div><div className="st-value" style={{ color: result.screenFailRate > 80 ? 'var(--red)' : result.screenFailRate > 60 ? 'var(--orange)' : 'var(--text)' }}><AnimCounter value={result.screenFailRate} suffix="%" /></div><div className="st-sub">Not enrolled</div><div className="bench-hint">Industry avg: 50-85%</div></div>
               <div className="stat-tile"><div className="st-label">Cost / Enrolled</div><div className="st-value"><AnimCounter value={result.costPerEnrolled} prefix="$" /></div><div className="st-sub">Total: ${result.totalCost.toLocaleString()}</div><div className="bench-hint">Typical: $1,500-$5,000</div></div>
             </div>
+            {compareOn && prevResult && (() => {
+              const dWeeks = (result.weeksToTarget || 104) - (prevResult.weeksToTarget || 104);
+              const dRate = (parseFloat(result.avgEnrollPerWeek) - parseFloat(prevResult.avgEnrollPerWeek)).toFixed(1);
+              const dSF = result.screenFailRate - prevResult.screenFailRate;
+              const dCost = result.costPerEnrolled - prevResult.costPerEnrolled;
+              return (
+                <div className="delta-row">
+                  <div className={`delta-tile ${dWeeks < 0 ? 'dt-better' : dWeeks > 0 ? 'dt-worse' : 'dt-neutral'}`}>
+                    <span className="dt-arrow">{dWeeks < 0 ? '\u2193' : dWeeks > 0 ? '\u2191' : '\u2194'}</span>
+                    <div><div className="dt-val">{dWeeks > 0 ? '+' : ''}{dWeeks} wk</div><div className="dt-label">vs {snapshotName || 'Baseline'}</div></div>
+                  </div>
+                  <div className={`delta-tile ${+dRate > 0 ? 'dt-better' : +dRate < 0 ? 'dt-worse' : 'dt-neutral'}`}>
+                    <span className="dt-arrow">{+dRate > 0 ? '\u2191' : +dRate < 0 ? '\u2193' : '\u2194'}</span>
+                    <div><div className="dt-val">{+dRate > 0 ? '+' : ''}{dRate}/wk</div><div className="dt-label">Enrollment rate</div></div>
+                  </div>
+                  <div className={`delta-tile ${dSF < 0 ? 'dt-better' : dSF > 0 ? 'dt-worse' : 'dt-neutral'}`}>
+                    <span className="dt-arrow">{dSF < 0 ? '\u2193' : dSF > 0 ? '\u2191' : '\u2194'}</span>
+                    <div><div className="dt-val">{dSF > 0 ? '+' : ''}{dSF}%</div><div className="dt-label">Screen failure</div></div>
+                  </div>
+                  <div className={`delta-tile ${dCost < 0 ? 'dt-better' : dCost > 0 ? 'dt-worse' : 'dt-neutral'}`}>
+                    <span className="dt-arrow">{dCost < 0 ? '\u2193' : dCost > 0 ? '\u2191' : '\u2194'}</span>
+                    <div><div className="dt-val">{dCost > 0 ? '+' : ''}{dCost < 0 ? '-' : ''}${Math.abs(dCost).toLocaleString()}</div><div className="dt-label">Cost / enrolled</div></div>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="results-grid">
               <div className="result-card">
                 <h4>Enrollment Timeline</h4>
-                {compareOn && prevResult && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> Baseline</div></div>}
+                {compareOn && prevResult && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
