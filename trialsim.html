@@ -110,6 +110,7 @@
   .source-chip .chip-dot { width: 6px; height: 6px; border-radius: 50%; }
 
   /* ── Config Panel ───────────────────────────────────── */
+  .config-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.1); z-index: 19; }
   .config-overlay { position: fixed; top: 0; right: 0; bottom: 0; width: 340px; background: var(--bg2); border-left: 1px solid var(--border); z-index: 20; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
   .config-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--bg3); }
   .config-header h3 { font-size: 13px; font-weight: 600; }
@@ -263,6 +264,8 @@
   .mf-arrow svg { width: 18px; height: 10px; }
   .mf-terminal { background: var(--green-bg); border-color: rgba(45,122,80,0.25); }
   .mf-terminal .mf-name { color: var(--green); }
+  .mf-stage.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(176,78,48,0.12); }
+  .ref-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(176,78,48,0.12); }
 
   /* Detail button in site table */
   .site-table .detail-cell { width: 36px; text-align: center; }
@@ -983,6 +986,19 @@ function GanttChart({ startup, onChange, fpi }) {
   );
 }
 
+// ─── Config Panel Wrapper with backdrop + Escape ─────────────────────
+function ConfigWrapper({ onClose, children }) {
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+  return <>
+    <div className="config-backdrop" onClick={onClose} />
+    {children}
+  </>;
+}
+
 function ConfigPanel({ node, nodeType, onChange, onDelete, onClose, onRename }) {
   if (!node) return null;
   const isSource = nodeType === 'source', isTerminal = !isSource && node.id === 'terminal';
@@ -1134,6 +1150,7 @@ function App() {
   const [ssMaxConcurrent, setSsMaxConcurrent] = useState(SS_TEMPLATES.academic.maxConcurrent);
   const [ssTargetN, setSsTargetN] = useState(SS_TEMPLATES.academic.targetN);
   const [ssLinkedSiteId, setSsLinkedSiteId] = useState(null); // for bidirectional sync
+  const [ssSel, setSsSel] = useState(null); // { id, type: 'funnel' | 'referral' }
 
   const loadSsTemplate = useCallback((key) => {
     const t = SS_TEMPLATES[key];
@@ -1792,7 +1809,7 @@ function App() {
               <div className="stat-tile"><div className="st-label">Time to Target</div><div className="st-value" style={{ color: visResult.weeksToTarget ? 'var(--green)' : (isPlaying ? 'var(--text)' : 'var(--orange)') }}>{isPlaying && !visResult.weeksToTarget ? `${visTimeline.length} wk` : (visResult.weeksToTarget ? `${visResult.weeksToTarget} wk` : '> 104 wk')}</div><div className="st-sub">{visResult.weeksToTarget ? `${(visResult.weeksToTarget / 4.33).toFixed(1)} months` : `${visResult.totalEnrolled} of ${targetN}`}</div></div>
               <div className="stat-tile"><div className="st-label">Enrollment Rate</div><div className="st-value"><AnimCounter value={parseFloat(visResult.avgEnrollPerWeek)} suffix="/wk" /></div><div className="st-sub">{(visResult.avgEnrollPerWeek * 4.33).toFixed(1)}/month</div></div>
               <div className="stat-tile"><div className="st-label">Screen Failure</div><div className="st-value" style={{ color: result.screenFailRate > 80 ? 'var(--red)' : result.screenFailRate > 60 ? 'var(--orange)' : 'var(--text)' }}><AnimCounter value={result.screenFailRate} suffix="%" /></div><div className="st-sub">Not enrolled</div><div className="bench-hint">Industry avg: 50-85%</div></div>
-              <div className="stat-tile"><div className="st-label">Cost / Enrolled</div><div className="st-value"><AnimCounter value={result.costPerEnrolled} prefix="$" /></div><div className="st-sub">Total: ${result.totalCost.toLocaleString()}</div><div className="bench-hint">Typical: $1,500-$5,000</div></div>
+              <div className="stat-tile"><div className="st-label">Cost / Enrolled</div><div className="st-value"><AnimCounter value={result.costPerEnrolled} prefix="$" /></div><div className="st-sub">Total: ${result.totalCost.toLocaleString()}</div><div className="bench-hint">Based on source cost/patient. Click a source to edit.</div></div>
             </div>
             {compareOn && prevResult && (() => {
               const dWeeks = (result.weeksToTarget || 104) - (prevResult.weeksToTarget || 104);
@@ -1951,7 +1968,7 @@ function App() {
                 <h4 style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 10, fontWeight: 600 }}>Referral Sources</h4>
                 <div className="ref-sources">
                   {ssReferrals.map((r, i) => (
-                    <div key={r.id} className="ref-card">
+                    <div key={r.id} className={`ref-card ${ssSel?.id === r.id ? 'selected' : ''}`} onClick={() => setSsSel({ id: r.id, type: 'referral' })} style={{ cursor: 'pointer' }}>
                       <div>
                         <input type="text" value={r.name} onChange={e => setSsReferrals(p => p.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} style={{ border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: 'var(--text)', padding: 0, width: '100%', fontFamily: 'inherit' }} />
                         <div className="rc-vol">
@@ -1979,7 +1996,7 @@ function App() {
                 const isT = stage.conversionRate >= 100;
                 return (
                   <React.Fragment key={stage.id}>
-                    <div className={`mf-stage ${isT ? 'mf-terminal' : ''}`}>
+                    <div className={`mf-stage ${isT ? 'mf-terminal' : ''} ${ssSel?.id === stage.id ? 'selected' : ''}`} onClick={() => !isT && setSsSel({ id: stage.id, type: 'funnel' })}>
                       <div className="mf-name">{stage.name}</div>
                       {!isT && <div className="mf-meta">{stage.conversionRate}% conv &middot; {stage.durationDays}d &middot; {stage.dropoutRate}% drop</div>}
                       {isT && <div className="mf-meta" style={{ color: 'var(--green)' }}>Endpoint</div>}
@@ -1994,20 +2011,7 @@ function App() {
                 setSsFunnel(p => { const n = [...p]; n.splice(termIdx >= 0 ? termIdx : p.length, 0, newStage); return n; });
               }}>+ Stage</button>
             </div>
-            {/* Inline funnel editing */}
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${ssFunnel.filter(f => f.conversionRate < 100).length}, 1fr)`, gap: 8, marginBottom: 16 }}>
-              {ssFunnel.filter(f => f.conversionRate < 100).map((stage, i) => (
-                <div key={stage.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text2)', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <input type="text" value={stage.name} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, name: e.target.value } : f))} style={{ border: 'none', background: 'none', fontSize: 10, fontWeight: 600, color: 'var(--text2)', padding: 0, width: '70%', fontFamily: 'inherit' }} />
-                    <button onClick={() => setSsFunnel(p => p.filter(f => f.id !== stage.id))} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 12, padding: '0 2px' }} title="Remove stage">&times;</button>
-                  </div>
-                  <div className="cfg-group" style={{ marginBottom: 8 }}><label>Conversion %</label><div className="slider-row"><input type="range" min="0" max="100" value={stage.conversionRate} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, conversionRate: +e.target.value } : f))} /><span className="val">{stage.conversionRate}%</span></div></div>
-                  <div className="cfg-group" style={{ marginBottom: 8 }}><label>Duration (days)</label><div className="slider-row"><input type="range" min="1" max="30" value={stage.durationDays} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, durationDays: +e.target.value } : f))} /><span className="val">{stage.durationDays}d</span></div></div>
-                  <div className="cfg-group" style={{ marginBottom: 0 }}><label>Dropout %</label><div className="slider-row"><input type="range" min="0" max="20" value={stage.dropoutRate} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, dropoutRate: +e.target.value } : f))} /><span className="val">{stage.dropoutRate}%</span></div></div>
-                </div>
-              ))}
-            </div>
+            <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 16, fontStyle: 'italic' }}>Click any stage or source card to configure it</div>
           </div>
 
           <div className="results-section">
@@ -2054,13 +2058,51 @@ function App() {
         <AIMRFooter />
       </div>
 
-      {/* Config overlay (study view only) */}
-      {activeTab === 'study' && selObj && <ConfigPanel node={selObj} nodeType={sel.type}
+      {/* Config overlay (study view) */}
+      {activeTab === 'study' && selObj && <ConfigWrapper onClose={() => setSel(null)}><ConfigPanel node={selObj} nodeType={sel.type}
         onChange={c => sel.type === 'source' ? updateSrc(sel.id, c) : updateStg(sel.id, c)}
         onDelete={() => deleteNode(sel.id, sel.type)}
         onClose={() => setSel(null)}
         onRename={name => sel.type === 'source' ? updateSrc(sel.id, { name }) : updateStg(sel.id, { name })}
-      />}
+      /></ConfigWrapper>}
+      {/* Config overlay (single site view) */}
+      {activeTab === 'single' && ssSel && (() => {
+        if (ssSel.type === 'funnel') {
+          const stage = ssFunnel.find(f => f.id === ssSel.id);
+          if (!stage || stage.conversionRate >= 100) return null;
+          return (
+            <ConfigWrapper onClose={() => setSsSel(null)}>
+            <div className="config-overlay">
+              <div className="config-header"><h3>Configure Stage</h3><button className="config-close" onClick={() => setSsSel(null)}>&times;</button></div>
+              <div className="config-body">
+                <div className="cfg-group"><label>Name</label><input type="text" value={stage.name} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, name: e.target.value } : f))} /></div>
+                <div className="cfg-group"><label title="Percentage of patients who pass this stage and advance to the next">Conversion Rate (%)</label><div className="slider-row"><input type="range" min="0" max="100" value={stage.conversionRate} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, conversionRate: +e.target.value } : f))} /><span className="val">{stage.conversionRate}%</span></div></div>
+                <div className="cfg-group"><label>Duration (days)</label><div className="slider-row"><input type="range" min="1" max="60" value={stage.durationDays} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, durationDays: +e.target.value } : f))} /><span className="val">{stage.durationDays}d</span></div></div>
+                <div className="cfg-group"><label title="Percentage of patients who leave voluntarily mid-stage">Dropout Rate (%)</label><div className="slider-row"><input type="range" min="0" max="30" value={stage.dropoutRate} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, dropoutRate: +e.target.value } : f))} /><span className="val">{stage.dropoutRate}%</span></div></div>
+                <button className="cfg-delete" onClick={() => { setSsFunnel(p => p.filter(f => f.id !== stage.id)); setSsSel(null); }}>Remove Stage</button>
+              </div>
+            </div>
+            </ConfigWrapper>
+          );
+        }
+        if (ssSel.type === 'referral') {
+          const ref = ssReferrals.find(r => r.id === ssSel.id);
+          if (!ref) return null;
+          return (
+            <ConfigWrapper onClose={() => setSsSel(null)}>
+            <div className="config-overlay">
+              <div className="config-header"><h3>Configure Source</h3><button className="config-close" onClick={() => setSsSel(null)}>&times;</button></div>
+              <div className="config-body">
+                <div className="cfg-group"><label>Name</label><input type="text" value={ref.name} onChange={e => setSsReferrals(p => p.map(r => r.id === ref.id ? { ...r, name: e.target.value } : r))} /></div>
+                <div className="cfg-group"><label>Volume (patients/week)</label><div className="slider-row"><input type="range" min="0" max="50" value={ref.volumePerWeek} onChange={e => setSsReferrals(p => p.map(r => r.id === ref.id ? { ...r, volumePerWeek: +e.target.value } : r))} /><span className="val">{ref.volumePerWeek}</span></div></div>
+                <button className="cfg-delete" onClick={() => { setSsReferrals(p => p.filter(r => r.id !== ref.id)); setSsSel(null); }}>Remove Source</button>
+              </div>
+            </div>
+            </ConfigWrapper>
+          );
+        }
+        return null;
+      })()}
       {milestone && <MilestoneBadge key={milestone.key} milestone={milestone} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
