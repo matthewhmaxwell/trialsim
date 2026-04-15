@@ -1149,6 +1149,7 @@ function App() {
   const [prevResult, setPrevResult] = useState(null);
   const [compareOn, setCompareOn] = useState(false);
   const [snapshotName, setSnapshotName] = useState('');
+  const [snapshotTab, setSnapshotTab] = useState(null); // which tab the snapshot is from
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [customSrcN, setCustomSrcN] = useState(1);
   const [customStgN, setCustomStgN] = useState(1);
@@ -1218,11 +1219,15 @@ function App() {
   // Bidirectional sync: push changes back to multi-site table
   useEffect(() => {
     if (!ssLinkedSiteId) return;
+    const avgDropout = ssFunnel.filter(f => f.conversionRate < 100).reduce((a, f) => a + (f.dropoutRate || 0), 0) / (ssFunnel.filter(f => f.conversionRate < 100).length || 1);
+    const totalRefVol = ssReferrals.reduce((a, r) => a + r.volumePerWeek, 0);
+    const weightedCost = totalRefVol > 0 ? Math.round(ssReferrals.reduce((a, r) => a + r.volumePerWeek * (r.costPerPatient || 0), 0) / totalRefVol) : 0;
     setSites(prev => prev.map(s => s.id === ssLinkedSiteId ? {
       ...s, name: ssIdentity.name, enrollmentRate: +ssResult.effectiveRate,
       activationWeek: ssFPI, screenFailRate: ssResult.screenFailRate,
+      dropoutRate: Math.round(avgDropout), costPerPatient: weightedCost,
     } : s));
-  }, [ssResult.effectiveRate, ssFPI, ssResult.screenFailRate, ssIdentity.name, ssLinkedSiteId]);
+  }, [ssResult.effectiveRate, ssFPI, ssResult.screenFailRate, ssIdentity.name, ssLinkedSiteId, ssFunnel, ssReferrals]);
 
   // ── Current result for animation ──
   const currentTimeline = activeTab === 'study' ? result.timeline : activeTab === 'site' ? siteResult.timeline : ssResult.timeline;
@@ -1284,7 +1289,7 @@ function App() {
   const showToast = (m) => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); setToast(m); toastTimerRef.current = setTimeout(() => setToast(null), 2500); };
 
   const exportConfig = () => {
-    const config = { template, sources, stages, targetN, numSites, sites, siteTargetN, siteScenario, ssIdentity, ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssTargetN, exportedAt: new Date().toISOString() };
+    const config = { template, sources, stages, targetN, numSites, sites, siteTargetN, siteScenario, ssIdentity, ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssTreatmentDuration, ssTargetN, exportedAt: new Date().toISOString() };
     const b = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
     const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'trialsim_config.json'; a.click(); URL.revokeObjectURL(u); showToast('Config exported');
   };
@@ -1304,6 +1309,7 @@ function App() {
       if (c.ssReferrals && Array.isArray(c.ssReferrals)) setSsReferrals(c.ssReferrals);
       if (c.ssFunnel && Array.isArray(c.ssFunnel) && c.ssFunnel.length > 0) setSsFunnel(c.ssFunnel);
       if (c.ssMaxConcurrent && typeof c.ssMaxConcurrent === 'number') setSsMaxConcurrent(c.ssMaxConcurrent);
+      if (c.ssTreatmentDuration && typeof c.ssTreatmentDuration === 'number') setSsTreatmentDuration(c.ssTreatmentDuration);
       if (c.ssTargetN && typeof c.ssTargetN === 'number' && c.ssTargetN > 0) setSsTargetN(c.ssTargetN);
       showToast('Config imported');
     } catch (err) { showToast('Invalid file: ' + err.message); } }; r.readAsText(f); }; inp.click();
@@ -1332,6 +1338,7 @@ function App() {
         const actIdx = hdr.findIndex(h => h.includes('activ') || h.includes('start'));
         const sfIdx = hdr.findIndex(h => h.includes('screen') || h.includes('fail'));
         const doIdx = hdr.findIndex(h => h.includes('drop'));
+        const costIdx = hdr.findIndex(h => h.includes('cost'));
         const capIdx = hdr.findIndex(h => h.includes('cap'));
         let skipped = 0;
         const newSites = lines.slice(1).map((line, i) => {
@@ -1344,6 +1351,7 @@ function App() {
             activationWeek: actIdx >= 0 ? Math.max(1, +cols[actIdx] || 1) : 1,
             screenFailRate: sfIdx >= 0 ? Math.min(100, Math.max(0, +cols[sfIdx] || 30)) : 30,
             dropoutRate: doIdx >= 0 ? Math.min(100, Math.max(0, +cols[doIdx] || 3)) : 3,
+            costPerPatient: costIdx >= 0 ? Math.max(0, +cols[costIdx] || 2500) : 2500,
             cap: capIdx >= 0 && cols[capIdx] && +cols[capIdx] > 0 ? +cols[capIdx] : null,
             active: true,
           };
@@ -1413,10 +1421,11 @@ function App() {
     // Map enrollment rate back to referral sources
     const totalFunnelConv = tmpl.funnel.reduce((acc, f) => f.conversionRate < 100 ? acc * (f.conversionRate / 100) : acc, 1);
     const neededRefVol = Math.max(1, Math.round(s.enrollmentRate / totalFunnelConv));
+    const siteCost = s.costPerPatient || 2500;
     setSsReferrals([
-      { id: 'ref1', name: 'Physician Referral', volumePerWeek: Math.round(neededRefVol * 0.4) },
-      { id: 'ref2', name: 'EHR Screening', volumePerWeek: Math.round(neededRefVol * 0.45) },
-      { id: 'ref3', name: 'Self-referral', volumePerWeek: Math.max(1, Math.round(neededRefVol * 0.15)) },
+      { id: 'ref1', name: 'Physician Referral', volumePerWeek: Math.round(neededRefVol * 0.4), costPerPatient: Math.round(siteCost * 1.2) },
+      { id: 'ref2', name: 'EHR Screening', volumePerWeek: Math.round(neededRefVol * 0.45), costPerPatient: Math.round(siteCost * 0.8) },
+      { id: 'ref3', name: 'Self-referral', volumePerWeek: Math.max(1, Math.round(neededRefVol * 0.15)), costPerPatient: Math.round(siteCost * 0.3) },
     ]);
     // Map screen fail rate to funnel
     const adjustedFunnel = tmpl.funnel.map(f => ({ ...f }));
@@ -1596,7 +1605,6 @@ function App() {
               {Object.entries(TEMPLATES).map(([k, v]) => <option key={k} value={k}>{v.name} {'\u2014'} {v.desc}</option>)}
             </select>
             <div className="field"><label>Target N</label><input type="number" value={targetN} onChange={e => setTargetN(Math.max(1, +e.target.value || 1))} /></div>
-            <div className="field"><label>Sites</label><input type="number" value={numSites} onChange={e => setNumSites(Math.max(1, +e.target.value || 1))} /></div>
           </>}
           {activeTab === 'site' && <>
             <select value={siteScenario} onChange={e => { if (!confirm('Switch scenario? Current site configuration will be replaced.')) return; setSiteScenario(e.target.value); loadSiteScenario(e.target.value); }}>
@@ -1624,7 +1632,7 @@ function App() {
             </div>
           )}
           {activeTab !== 'home' && activeTab !== 'tutorial' && <>
-            <button className="btn" onClick={() => { const name = prompt('Name this scenario snapshot:', 'Baseline'); if (name === null) return; setPrevResult(currentResult); setSnapshotName(name || 'Baseline'); setCompareOn(true); showToast(`Snapshot saved: ${name || 'Baseline'}`); }}>Snapshot</button>
+            <button className="btn" onClick={() => { const name = prompt('Name this scenario snapshot:', 'Baseline'); if (name === null) return; setPrevResult(currentResult); setSnapshotName(name || 'Baseline'); setSnapshotTab(activeTab); setCompareOn(true); showToast(`Snapshot saved: ${name || 'Baseline'}`); }}>Snapshot</button>
             {compareOn && <button className="btn" onClick={() => setCompareOn(false)} style={{ color: 'var(--orange)' }}>Clear</button>}
           </>}
           <div className="topbar-sep" />
@@ -1830,7 +1838,7 @@ function App() {
               <div className="stat-tile"><div className="st-label">Screen Failure</div><div className="st-value" style={{ color: result.screenFailRate > 80 ? 'var(--red)' : result.screenFailRate > 60 ? 'var(--orange)' : 'var(--text)' }}><AnimCounter value={result.screenFailRate} suffix="%" /></div><div className="st-sub">Not enrolled</div><div className="bench-hint">Industry avg: 50-85%</div></div>
               <div className="stat-tile"><div className="st-label">Cost / Enrolled</div><div className="st-value"><AnimCounter value={result.costPerEnrolled} prefix="$" /></div><div className="st-sub">Total: ${result.totalCost.toLocaleString()}</div><div className="bench-hint">Based on source cost/patient. Click a source to edit.</div></div>
             </div>
-            {compareOn && prevResult && (() => {
+            {compareOn && prevResult && snapshotTab === activeTab && (() => {
               const dWeeks = (result.weeksToTarget || 104) - (prevResult.weeksToTarget || 104);
               const dRate = (parseFloat(result.avgEnrollPerWeek) - parseFloat(prevResult.avgEnrollPerWeek)).toFixed(1);
               const dSF = result.screenFailRate - prevResult.screenFailRate;
@@ -1859,7 +1867,7 @@ function App() {
             <div className="results-grid">
               <div className="result-card">
                 <h4>Enrollment Timeline</h4>
-                {compareOn && prevResult && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
+                {compareOn && prevResult && snapshotTab === activeTab && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
@@ -1867,7 +1875,7 @@ function App() {
                     <YAxis stroke="#8c857e" tick={{ fontSize: 10 }} domain={[0, Math.ceil(targetN * 1.1)]} />
                     <RTooltip contentStyle={{ background: '#fff', border: '1px solid #d4cfca', borderRadius: 6, fontSize: 11, color: '#1e1e1e' }} formatter={(v) => [v, 'Enrolled']} labelFormatter={(w) => `Week ${w}`} />
                     <ReferenceLine y={targetN} stroke="#b07d20" strokeDasharray="6 3" label={{ value: `Target: ${targetN}`, position: 'right', style: { fontSize: 10, fill: '#b07d20' } }} />
-                    {compareOn && prevResult && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} />}
+                    {compareOn && prevResult && snapshotTab === activeTab && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} />}
                     <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill="rgba(176,78,48,0.12)" strokeWidth={2.5} dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -1926,7 +1934,7 @@ function App() {
             <div className="results-grid">
               <div className="result-card">
                 <h4>Enrollment Timeline</h4>
-                {compareOn && prevResult && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
+                {compareOn && prevResult && snapshotTab === activeTab && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
@@ -1934,7 +1942,7 @@ function App() {
                     <YAxis stroke="#8c857e" tick={{ fontSize: 10 }} domain={[0, Math.ceil(siteTargetN * 1.1)]} />
                     <RTooltip contentStyle={{ background: '#fff', border: '1px solid #d4cfca', borderRadius: 6, fontSize: 11, color: '#1e1e1e' }} formatter={(v) => [v, 'Enrolled']} labelFormatter={(w) => `Week ${w}`} />
                     <ReferenceLine y={siteTargetN} stroke="#b07d20" strokeDasharray="6 3" label={{ value: `Target: ${siteTargetN}`, position: 'right', style: { fontSize: 10, fill: '#b07d20' } }} />
-                    {compareOn && prevResult && prevResult.timeline && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} />}
+                    {compareOn && prevResult && snapshotTab === activeTab && prevResult.timeline && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} />}
                     <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill="rgba(176,78,48,0.12)" strokeWidth={2.5} dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -2047,7 +2055,7 @@ function App() {
             <div className="results-grid">
               <div className="result-card">
                 <h4>Site Enrollment Timeline</h4>
-                {compareOn && prevResult && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
+                {compareOn && prevResult && snapshotTab === activeTab && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
@@ -2056,7 +2064,7 @@ function App() {
                     <RTooltip contentStyle={{ background: '#fff', border: '1px solid #d4cfca', borderRadius: 6, fontSize: 11, color: '#1e1e1e' }} formatter={(v, n, p) => [v, p.payload.phase === 'startup' ? 'Startup' : 'Enrolled']} labelFormatter={(w) => `Week ${w}`} />
                     <ReferenceLine x={ssFPI} stroke="var(--accent)" strokeDasharray="4 4" label={{ value: 'FPI', position: 'top', style: { fontSize: 10, fill: 'var(--accent)' } }} />
                     <ReferenceLine y={ssTargetN} stroke="#b07d20" strokeDasharray="6 3" label={{ value: `Target: ${ssTargetN}`, position: 'right', style: { fontSize: 10, fill: '#b07d20' } }} />
-                    {compareOn && prevResult && prevResult.timeline && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} />}
+                    {compareOn && prevResult && snapshotTab === activeTab && prevResult.timeline && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} />}
                     <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill="rgba(176,78,48,0.12)" strokeWidth={2.5} dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
