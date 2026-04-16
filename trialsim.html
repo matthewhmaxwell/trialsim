@@ -20,6 +20,7 @@
 <script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
 <script>window.PropTypes = window.PropTypes || window.propTypes;</script>
 <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -300,10 +301,42 @@
   }
 
   /* ── Speed Control ──────────────────────────────────── */
-  .speed-control { display: flex; align-items: center; gap: 6px; }
-  .speed-control label { font-size: 10px; color: var(--text3); font-weight: 500; }
+  @media print {
+    body { overflow: visible !important; height: auto !important; background: #fff !important; }
+    .topbar, .tab-bar, .config-overlay, .config-backdrop, .snapshots-overlay, .welcome-banner, .source-drawer, .source-drawer-toggle, .playback-bar, .feedback-widget, header, footer { display: none !important; }
+    .app, .main-scroll { height: auto !important; overflow: visible !important; }
+    .result-card, .stat-tile { page-break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; }
+    .pipeline-section, .results-section { padding: 16px !important; }
+  }
+  .benchmark-bar { position: relative; height: 6px; background: var(--bg3); border-radius: 3px; margin-top: 4px; }
+  .benchmark-range { position: absolute; top: 0; bottom: 0; background: rgba(45,122,80,0.22); border-radius: 3px; }
+  .benchmark-mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--accent); transform: translateX(-50%); border-radius: 1px; }
+  .benchmark-label { font-size: 9px; color: var(--text3); margin-top: 3px; font-weight: 500; }
+
+  .diagnostics-list { display: flex; flex-direction: column; gap: 8px; }
+  .diag-item { display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg2); }
+  .diag-item.diag-critical { border-left: 3px solid var(--red); background: rgba(166,61,52,0.04); }
+  .diag-item.diag-high { border-left: 3px solid var(--orange); background: rgba(176,125,32,0.04); }
+  .diag-item.diag-medium { border-left: 3px solid var(--accent); background: var(--accent-bg); }
+  .diag-item.diag-low { border-left: 3px solid var(--text3); }
+  .diag-item.diag-good { border-left: 3px solid var(--green); background: var(--green-bg); }
+  .diag-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; color: #fff; background: var(--text3); }
+  .diag-critical .diag-icon { background: var(--red); }
+  .diag-high .diag-icon { background: var(--orange); }
+  .diag-medium .diag-icon { background: var(--accent); }
+  .diag-good .diag-icon { background: var(--green); }
+  .diag-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .diag-text { font-size: 11px; color: var(--text2); line-height: 1.5; }
+
+  .mc-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text2); font-weight: 500; cursor: pointer; user-select: none; }
+  .mc-toggle input { accent-color: var(--accent); }
+  .mc-summary { display: flex; flex-wrap: wrap; gap: 14px; font-size: 10px; color: var(--text2); padding: 6px 0 8px; border-bottom: 1px solid var(--bg3); margin-bottom: 6px; }
+  .mc-summary strong { color: var(--accent); }
+  .speed-control, .scrubber-control { display: flex; align-items: center; gap: 6px; }
+  .speed-control label, .scrubber-control label { font-size: 10px; color: var(--text3); font-weight: 500; }
   .speed-control input[type="range"] { width: 60px; accent-color: var(--accent); height: 3px; }
-  .speed-control .speed-val { font-size: 10px; font-weight: 600; color: var(--accent); min-width: 28px; }
+  .scrubber-control input[type="range"] { width: 100px; accent-color: var(--accent); height: 3px; }
+  .speed-control .speed-val, .scrubber-control .speed-val { font-size: 10px; font-weight: 600; color: var(--accent); min-width: 28px; }
 
   /* ── Animated Counter ───────────────────────────────── */
   .counter-anim { display: inline-block; transition: transform 0.15s; }
@@ -467,6 +500,24 @@
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg2); padding: 8px 20px; border-radius: var(--radius); font-size: 12px; font-weight: 500; z-index: 100; box-shadow: var(--shadow-lg); }
+
+  /* ── Snapshots Panel ── */
+  .snapshots-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .snapshots-panel { background: var(--bg2); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 100%; max-width: 900px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
+  .snapshots-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .snapshots-header h3 { font-size: 14px; font-weight: 600; color: var(--text); }
+  .snapshots-body { overflow-y: auto; }
+  .snap-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .snap-table th { text-align: left; padding: 10px 12px; background: var(--bg3); color: var(--text3); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .snap-table td { padding: 10px 12px; border-bottom: 1px solid var(--bg3); color: var(--text2); vertical-align: top; }
+  .snap-table td:first-child { color: var(--text); }
+  .snap-table tr.snap-active { background: var(--accent-bg); }
+  .snap-table .snap-ts { font-size: 9px; color: var(--text3); font-weight: 400; margin-top: 2px; }
+  .snap-action { background: var(--bg2); border: 1px solid var(--border); color: var(--text2); font-size: 10px; font-weight: 500; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-family: inherit; margin-right: 4px; }
+  .snap-action:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+  .snap-del { padding: 4px 8px; color: var(--text3); }
+  .snap-del:hover { background: rgba(166,61,52,0.08); border-color: var(--red); color: var(--red); }
+  .snap-footer { padding: 12px 20px; border-top: 1px solid var(--bg3); text-align: right; }
   /* footer replaced by AIMR standard footer */
 </style>
 <script src="https://aimronline.org/feedback.js"></script>
@@ -532,6 +583,114 @@ const TEMPLATES = {
       { id: 'terminal', name: 'Randomized', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
     ] },
 };
+
+// ─── Therapeutic Area Presets ─────────────────────────────────────────
+// Realistic multipliers/overrides derived from published literature benchmarks.
+// Applied on top of the base trial phase template.
+const TA_PRESETS = {
+  none: { name: 'Generic (no TA adjustment)', desc: 'Use unadjusted template defaults' },
+  oncology: {
+    name: 'Oncology',
+    desc: 'High screen failure, slow ramp, strict eligibility',
+    sourceVolumeMult: 0.7,        // harder to find patients
+    conversionMult: 0.75,          // tighter eligibility -> lower conversion
+    screenFailBoost: 15,           // add 15% to screen failure expectations
+    dropoutMult: 0.9,              // oncology patients tend to stay enrolled
+    costMult: 1.4,                 // oncology trials run expensive
+  },
+  vaccines: {
+    name: 'Vaccine / Prevention',
+    desc: 'High volume, fast screening, loose eligibility',
+    sourceVolumeMult: 2.2,
+    conversionMult: 1.25,
+    screenFailBoost: -15,
+    dropoutMult: 1.1,
+    costMult: 0.6,
+  },
+  cns: {
+    name: 'CNS / Psychiatry',
+    desc: 'High dropout, moderate eligibility, placebo challenges',
+    sourceVolumeMult: 0.9,
+    conversionMult: 0.95,
+    screenFailBoost: 5,
+    dropoutMult: 1.6,              // CNS dropout is notoriously high
+    costMult: 1.1,
+  },
+  cardiovascular: {
+    name: 'Cardiovascular',
+    desc: 'Common disease, moderate eligibility, long follow-up',
+    sourceVolumeMult: 1.3,
+    conversionMult: 1.05,
+    screenFailBoost: -5,
+    dropoutMult: 1.05,
+    costMult: 0.9,
+  },
+  metabolic: {
+    name: 'Metabolic / Diabetes',
+    desc: 'Large eligible population, moderate conversion',
+    sourceVolumeMult: 1.5,
+    conversionMult: 1.0,
+    screenFailBoost: 0,
+    dropoutMult: 1.1,
+    costMult: 0.85,
+  },
+  infectious: {
+    name: 'Infectious Disease',
+    desc: 'Event-driven, moderate volume',
+    sourceVolumeMult: 1.1,
+    conversionMult: 1.1,
+    screenFailBoost: -10,
+    dropoutMult: 0.95,
+    costMult: 0.8,
+  },
+  autoimmune: {
+    name: 'Autoimmune / Immunology',
+    desc: 'Complex eligibility, moderate patient pools',
+    sourceVolumeMult: 0.8,
+    conversionMult: 0.85,
+    screenFailBoost: 10,
+    dropoutMult: 1.1,
+    costMult: 1.2,
+  },
+  rare: {
+    name: 'Rare / Orphan Disease',
+    desc: 'Tiny populations, advocacy-driven, fast approvals',
+    sourceVolumeMult: 0.3,
+    conversionMult: 1.2,           // motivated patients convert well
+    screenFailBoost: -5,
+    dropoutMult: 0.7,
+    costMult: 1.8,
+  },
+  pediatric: {
+    name: 'Pediatric',
+    desc: 'Parental consent required, slower recruitment',
+    sourceVolumeMult: 0.6,
+    conversionMult: 0.9,
+    screenFailBoost: 5,
+    dropoutMult: 0.9,
+    costMult: 1.3,
+  },
+};
+
+// Apply a TA preset to the current sources and stages
+function applyTAPreset(taKey, sources, stages) {
+  const ta = TA_PRESETS[taKey];
+  if (!ta || taKey === 'none') return { sources, stages };
+  const newSources = sources.map(s => ({
+    ...s,
+    volume: Math.max(1, Math.round(s.volume * (ta.sourceVolumeMult || 1))),
+    costPerPatient: Math.round((s.costPerPatient || 0) * (ta.costMult || 1)),
+  }));
+  const newStages = stages.map(s => {
+    if (s.id === 'terminal') return s;
+    return {
+      ...s,
+      conversionRate: Math.min(100, Math.max(5, Math.round(s.conversionRate * (ta.conversionMult || 1) - (ta.screenFailBoost || 0) * 0.25))),
+      dropoutRate: Math.min(30, Math.max(0, Math.round((s.dropoutRate || 0) * (ta.dropoutMult || 1)))),
+    };
+  });
+  return { sources: newSources, stages: newStages };
+}
 
 // ─── Site Scenario Templates ─────────────────────────────────────────
 const SITE_NAMES_POOL = [
@@ -813,6 +972,97 @@ function simulateSingleSite(config, maxWeeks = 104) {
   };
 }
 
+// ─── Diagnostic engine: detect issues, suggest fixes ─────────────────
+function diagnose({ sources, stages, targetN, result }) {
+  const issues = [];
+  if (!sources || !stages || !result || !result.timeline) return issues;
+  const activeSources = sources.filter(s => s.active !== false);
+  const weeksUsed = result.timeline.length;
+  // 1. Didn't hit target
+  if (!result.weeksToTarget) {
+    const deficit = targetN - result.totalEnrolled;
+    issues.push({ severity: 'critical', title: `Target not met: ${result.totalEnrolled}/${targetN}`, body: `Enrollment fell ${deficit} patients short after 104 weeks. Consider increasing source volumes, relaxing eligibility (raise conversion rates), or adding new sources.` });
+  }
+  // 2. Bottlenecks from utilization
+  const avgUtilByStage = stages.map((_, i) => { const u = (result.stageUtilization[i] || []).slice(-10); return u.length ? u.reduce((a, b) => a + b, 0) / u.length : 0; });
+  stages.forEach((s, i) => {
+    if (s.id === 'terminal') return;
+    const u = avgUtilByStage[i];
+    if (u > 1.2) {
+      const suggested = Math.ceil(s.throughputPerWeek * 1.3);
+      issues.push({ severity: 'high', title: `Bottleneck at "${s.name}"`, body: `This stage is running at ${Math.round(u * 100)}% capacity (queue exceeds throughput). Raising throughput from ${s.throughputPerWeek}/wk to ${suggested}/wk could accelerate the funnel.` });
+    }
+  });
+  // 3. Low conversion stages
+  stages.forEach(s => {
+    if (s.id === 'terminal') return;
+    if (s.conversionRate < 35) {
+      issues.push({ severity: 'medium', title: `Low conversion at "${s.name}"`, body: `Only ${s.conversionRate}% of patients advance past this stage. Review eligibility criteria or add pre-screening to reduce screen failure.` });
+    }
+  });
+  // 4. Overall screen fail too high
+  if (result.screenFailRate > 85) {
+    issues.push({ severity: 'high', title: `Screen failure rate is very high (${result.screenFailRate}%)`, body: `Most identified patients aren't reaching enrollment. Consider loosening inclusion criteria at the stage with the lowest conversion, or shifting to higher-quality sources.` });
+  }
+  // 5. Single source dominance
+  if (activeSources.length > 1 && result.sourcePercents) {
+    const top = Object.entries(result.sourcePercents).sort((a, b) => b[1] - a[1])[0];
+    if (top && top[1] > 55) {
+      const srcName = (activeSources.find(s => s.id === top[0]) || {}).name || top[0];
+      issues.push({ severity: 'medium', title: `Source concentration risk: "${srcName}" = ${top[1]}%`, body: `Over half your patients come from one source. If that channel underperforms, enrollment stalls. Diversify by activating additional source types.` });
+    }
+  }
+  // 6. Cost per enrolled above benchmark
+  if (result.costPerEnrolled > 5000) {
+    issues.push({ severity: 'medium', title: `Cost per enrolled is high ($${result.costPerEnrolled.toLocaleString()})`, body: `Industry typical is $1,500-$5,000. Look for lower-cost channels (agentic outreach, AI pre-screening), or reduce reliance on expensive sources like digital ads.` });
+  }
+  // 7. Severe ramp-up delays on primary sources
+  const slowRampSources = activeSources.filter(s => s.volume > 15 && s.rampUpWeeks > 5);
+  if (slowRampSources.length) {
+    const names = slowRampSources.map(s => s.name).join(', ');
+    issues.push({ severity: 'low', title: `Slow ramp-up on high-volume sources`, body: `${names} need ${Math.max(...slowRampSources.map(s => s.rampUpWeeks))}+ weeks to reach full volume. Parallel activation or earlier contracting could pull FPI forward.` });
+  }
+  // 8. All good
+  if (!issues.length) issues.push({ severity: 'good', title: 'No issues detected', body: 'Your current configuration looks well-balanced. Try a Monte Carlo run to see the uncertainty ranges.' });
+  return issues;
+}
+
+// ─── Monte Carlo: P10/P50/P90 enrollment fan ───────────────────────
+// Adds log-normal noise to source rates and stage conversions, runs N iterations,
+// returns per-week percentile bands and completion-week distribution.
+function montecarlo(sources, stages, targetN, iterations = 200, varianceSigma = 0.25, maxWeeks = 104) {
+  if (!stages.length || !sources.length) return null;
+  // Seeded PRNG for determinism across renders of same config
+  const runs = [];
+  for (let iter = 0; iter < iterations; iter++) {
+    // Perturb sources: volume ~ lognormal
+    const ps = sources.map(s => ({ ...s, volume: Math.max(0, s.volume * Math.exp((Math.random() + Math.random() + Math.random() - 1.5) * varianceSigma)) }));
+    const pstg = stages.map(s => ({ ...s,
+      conversionRate: Math.min(100, Math.max(0, s.conversionRate * Math.exp((Math.random() + Math.random() + Math.random() - 1.5) * varianceSigma))),
+      dropoutRate: Math.min(100, Math.max(0, (s.dropoutRate || 0) * Math.exp((Math.random() + Math.random() + Math.random() - 1.5) * varianceSigma))),
+    }));
+    const r = simulate(ps, pstg, targetN, maxWeeks);
+    runs.push({ timeline: r.timeline, weeksToTarget: r.weeksToTarget });
+  }
+  // Collect per-week enrollment distribution
+  const bands = [];
+  for (let w = 0; w < maxWeeks; w++) {
+    const values = runs.map(r => (r.timeline[w] && r.timeline[w].enrolled) || (r.timeline.length > 0 ? r.timeline[r.timeline.length - 1].enrolled : 0));
+    values.sort((a, b) => a - b);
+    bands.push({
+      week: w + 1,
+      p10: values[Math.floor(iterations * 0.1)],
+      p50: values[Math.floor(iterations * 0.5)],
+      p90: values[Math.floor(iterations * 0.9)],
+    });
+  }
+  // Completion week distribution
+  const completionWeeks = runs.map(r => r.weeksToTarget || maxWeeks + 1).sort((a, b) => a - b);
+  const prob = { p10: completionWeeks[Math.floor(iterations * 0.1)], p50: completionWeeks[Math.floor(iterations * 0.5)], p90: completionWeeks[Math.floor(iterations * 0.9)] };
+  const completed = runs.filter(r => r.weeksToTarget).length;
+  return { bands, prob, completedPct: Math.round((completed / iterations) * 100), iterations };
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // SHARED COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════
@@ -1032,10 +1282,20 @@ function ConfigPanel({ node, nodeType, onChange, onDelete, onClose, onRename }) 
           <div className="cfg-group"><label className="toggle-row"><input type="checkbox" checked={node.active !== false} onChange={e => onChange({ active: e.target.checked })} /> Active</label></div>
         </>}
         {!isSource && !isTerminal && <>
-          <div className="cfg-group"><label title="Percentage of patients who pass this stage and advance to the next">Conversion Rate (%)</label><div className="slider-row"><input type="range" min="0" max="100" value={node.conversionRate} onChange={e => onChange({ conversionRate: +e.target.value })} /><span className="val">{node.conversionRate}%</span></div></div>
+          <div className="cfg-group">
+            <label title="Percentage of patients who pass this stage and advance to the next">Conversion Rate (%)</label>
+            <div className="slider-row"><input type="range" min="0" max="100" value={node.conversionRate} onChange={e => onChange({ conversionRate: +e.target.value })} /><span className="val">{node.conversionRate}%</span></div>
+            <div className="benchmark-bar" title="Industry typical range: 40-80%"><div className="benchmark-range" style={{ left: '40%', width: '40%' }} /><div className="benchmark-mark" style={{ left: `${node.conversionRate}%` }} /></div>
+            <div className="benchmark-label">Industry typical: 40-80% {node.conversionRate < 35 && <span style={{ color: 'var(--red)' }}>\u2022 Below typical</span>}{node.conversionRate > 85 && <span style={{ color: 'var(--orange)' }}>\u2022 Above typical</span>}</div>
+          </div>
           <div className="cfg-group"><label title="Maximum patients this stage can process per week (capacity constraint)">Throughput (patients/week)</label><div className="slider-row"><input type="range" min="1" max="500" value={node.throughputPerWeek} onChange={e => onChange({ throughputPerWeek: +e.target.value })} /><span className="val">{node.throughputPerWeek}</span></div></div>
           <div className="cfg-group"><label>Avg Duration (days)</label><div className="slider-row"><input type="range" min="1" max="60" value={node.avgDurationDays} onChange={e => onChange({ avgDurationDays: +e.target.value })} /><span className="val">{node.avgDurationDays}d</span></div></div>
-          <div className="cfg-group"><label title="Percentage of patients who leave mid-stage (different from failing to convert)">Dropout Rate (%)</label><div className="slider-row"><input type="range" min="0" max="30" value={node.dropoutRate} onChange={e => onChange({ dropoutRate: +e.target.value })} /><span className="val">{node.dropoutRate}%</span></div></div>
+          <div className="cfg-group">
+            <label title="Percentage of patients who leave mid-stage (different from failing to convert)">Dropout Rate (%)</label>
+            <div className="slider-row"><input type="range" min="0" max="30" value={node.dropoutRate} onChange={e => onChange({ dropoutRate: +e.target.value })} /><span className="val">{node.dropoutRate}%</span></div>
+            <div className="benchmark-bar" title="Industry typical range: 1-10%"><div className="benchmark-range" style={{ left: `${(1/30)*100}%`, width: `${(9/30)*100}%` }} /><div className="benchmark-mark" style={{ left: `${(node.dropoutRate/30)*100}%` }} /></div>
+            <div className="benchmark-label">Industry typical: 1-10% {node.dropoutRate > 15 && <span style={{ color: 'var(--red)' }}>\u2022 High dropout</span>}</div>
+          </div>
         </>}
         {isTerminal && <div className="cfg-hint">This is the enrollment endpoint. Patients reaching this node count as enrolled.</div>}
         {!isTerminal && <button className="cfg-delete" onClick={onDelete}>Remove {isSource ? 'Source' : 'Stage'}</button>}
@@ -1141,6 +1401,7 @@ function App() {
 
   // ── Study View State ──
   const [template, setTemplate] = useState('phase23');
+  const [taPreset, setTaPreset] = useState('none');
   const [sources, setSources] = useState([]);
   const [stages, setStages] = useState([]);
   const [targetN, setTargetN] = useState(300);
@@ -1150,6 +1411,8 @@ function App() {
   const [compareOn, setCompareOn] = useState(false);
   const [snapshotName, setSnapshotName] = useState('');
   const [snapshotTab, setSnapshotTab] = useState(null); // which tab the snapshot is from
+  const [snapshots, setSnapshots] = useState([]); // array of { id, name, tab, result, stats, ts }
+  const [showSnapshotsPanel, setShowSnapshotsPanel] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [customSrcN, setCustomSrcN] = useState(1);
   const [customStgN, setCustomStgN] = useState(1);
@@ -1189,6 +1452,11 @@ function App() {
   const [showWelcome, setShowWelcome] = useState({ study: true, site: true, single: true });
   const [hasEdited, setHasEdited] = useState(false);
 
+  // ── Persistence: localStorage autosave + shareable URL ──
+  const STORAGE_KEY = 'trialsim_state_v1';
+  const hydrated = useRef(false);
+  const hydratedFromSave = useRef(false);
+
   // ── Study Template Loader ──
   const loadTemplate = useCallback((key) => {
     const t = TEMPLATES[key];
@@ -1197,16 +1465,22 @@ function App() {
     setTargetN(t.targetN); setNumSites(t.numSites);
     setSel(null); setPrevResult(null); setCompareOn(false); setDrawerOpen(false);
   }, []);
-  useEffect(() => { loadTemplate(template); }, []);
+  useEffect(() => { if (!hydratedFromSave.current) loadTemplate(template); }, []);
 
   // ── Site Scenario Loader ──
   const loadSiteScenario = useCallback((key) => {
     setSites(SITE_SCENARIOS[key].generate());
   }, []);
-  useEffect(() => { loadSiteScenario(siteScenario); }, []);
+  useEffect(() => { if (!hydratedFromSave.current) loadSiteScenario(siteScenario); }, []);
 
   // ── Study Simulation ──
   const result = useMemo(() => simulate(sources, stages, targetN, 104), [sources, stages, targetN]);
+  const [showMonteCarlo, setShowMonteCarlo] = useState(false);
+  const [showActualsPanel, setShowActualsPanel] = useState(false);
+  const [actualsInput, setActualsInput] = useState('');
+  const [actualsData, setActualsData] = useState(null); // { values: [n per week], fitMultiplier }
+  const monteCarloResult = useMemo(() => showMonteCarlo ? montecarlo(sources, stages, targetN, 200, 0.25, 104) : null, [showMonteCarlo, sources, stages, targetN]);
+  const diagnostics = useMemo(() => diagnose({ sources, stages, targetN, result }), [sources, stages, targetN, result]);
 
   // ── Site Simulation ──
   const siteResult = useMemo(() => simulateSites(sites, siteTargetN, 104), [sites, siteTargetN]);
@@ -1287,6 +1561,122 @@ function App() {
   const deleteNode = (id, type) => { if (type === 'source') setSources(p => p.filter(s => s.id !== id)); else setStages(p => p.filter(s => s.id !== id)); setSel(null); };
   const toastTimerRef = useRef(null);
   const showToast = (m) => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); setToast(m); toastTimerRef.current = setTimeout(() => setToast(null), 2500); };
+
+  const serializeState = () => ({
+    v: 1, activeTab, template, sources, stages, targetN,
+    sites, siteScenario, siteTargetN,
+    ssTemplate, ssIdentity, ssStartup, ssReferrals, ssFunnel,
+    ssMaxConcurrent, ssTreatmentDuration, ssTargetN,
+  });
+  const applyState = (s) => {
+    if (!s || s.v !== 1) return false;
+    try {
+      if (s.activeTab) setActiveTab(s.activeTab);
+      if (s.template) setTemplate(s.template);
+      if (Array.isArray(s.sources)) setSources(s.sources);
+      if (Array.isArray(s.stages) && s.stages.length) setStages(s.stages);
+      if (typeof s.targetN === 'number' && s.targetN > 0) setTargetN(s.targetN);
+      if (Array.isArray(s.sites)) setSites(s.sites);
+      if (s.siteScenario) setSiteScenario(s.siteScenario);
+      if (typeof s.siteTargetN === 'number' && s.siteTargetN > 0) setSiteTargetN(s.siteTargetN);
+      if (s.ssTemplate) setSsTemplate(s.ssTemplate);
+      if (s.ssIdentity && s.ssIdentity.name) setSsIdentity(s.ssIdentity);
+      if (s.ssStartup && s.ssStartup.regulatory) setSsStartup(s.ssStartup);
+      if (Array.isArray(s.ssReferrals)) setSsReferrals(s.ssReferrals);
+      if (Array.isArray(s.ssFunnel) && s.ssFunnel.length) setSsFunnel(s.ssFunnel);
+      if (typeof s.ssMaxConcurrent === 'number') setSsMaxConcurrent(s.ssMaxConcurrent);
+      if (typeof s.ssTreatmentDuration === 'number') setSsTreatmentDuration(s.ssTreatmentDuration);
+      if (typeof s.ssTargetN === 'number' && s.ssTargetN > 0) setSsTargetN(s.ssTargetN);
+      return true;
+    } catch { return false; }
+  };
+  // Hydrate once on mount: URL hash > localStorage
+  useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
+    if (window.location.hash && window.location.hash.length > 1) {
+      try {
+        const decoded = atob(decodeURIComponent(window.location.hash.slice(1)));
+        const s = JSON.parse(decoded);
+        if (applyState(s)) {
+          hydratedFromSave.current = true;
+          showToast('Loaded shared scenario');
+          window.history.replaceState(null, '', window.location.pathname);
+          return;
+        }
+      } catch {}
+    }
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        if (applyState(JSON.parse(raw))) hydratedFromSave.current = true;
+      }
+    } catch {}
+  }, []);
+  // Autosave on state change (debounced)
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const t = setTimeout(() => {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState())); } catch {}
+    }, 300);
+    return () => clearTimeout(t);
+  }, [activeTab, template, sources, stages, targetN, sites, siteScenario, siteTargetN, ssTemplate, ssIdentity, ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssTreatmentDuration, ssTargetN]);
+  const shareURL = () => {
+    try {
+      const encoded = btoa(JSON.stringify(serializeState()));
+      const url = `${window.location.origin}${window.location.pathname}#${encoded}`;
+      navigator.clipboard.writeText(url);
+      showToast('Share link copied to clipboard');
+    } catch { showToast('Could not create share link'); }
+  };
+  const resetAll = () => {
+    if (!confirm('Reset all configuration to defaults? This will clear autosave.')) return;
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    window.location.reload();
+  };
+  // Export current view as PNG (uses html2canvas)
+  const exportPNG = async () => {
+    if (typeof html2canvas === 'undefined') { showToast('Export library not loaded'); return; }
+    const target = document.querySelector('.main-scroll');
+    if (!target) { showToast('Nothing to export'); return; }
+    showToast('Generating PNG...');
+    try {
+      const canvas = await html2canvas(target, { backgroundColor: '#f5f3f0', scale: 2, logging: false, useCORS: true });
+      const link = document.createElement('a');
+      link.download = `trialsim-${activeTab}-${new Date().toISOString().slice(0,10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('PNG downloaded');
+    } catch (e) { showToast('Export failed: ' + e.message); }
+  };
+  // Export as PDF via print dialog (browser native, no extra lib)
+  const exportPDF = () => {
+    showToast('Opening print dialog (select "Save as PDF")');
+    setTimeout(() => window.print(), 300);
+  };
+  // Parse user-pasted actuals and fit to modeled curve
+  const applyActuals = () => {
+    const raw = actualsInput.trim();
+    if (!raw) { setActualsData(null); setShowActualsPanel(false); return; }
+    const tokens = raw.split(/[\s,\n]+/).map(t => t.trim()).filter(Boolean);
+    const values = tokens.map(Number).filter(n => !isNaN(n) && n >= 0);
+    if (!values.length) { showToast('Could not parse numbers'); return; }
+    // Compare actuals[i] to result.timeline[i].enrolled (cumulative)
+    // If user typed weekly increments, convert to cumulative
+    const looksCumulative = values.every((v, i) => i === 0 || v >= values[i - 1]);
+    const cum = looksCumulative ? values : values.reduce((acc, v, i) => { acc.push((acc[i - 1] || 0) + v); return acc; }, []);
+    // Fit a simple multiplier: mean(actual/modeled) across the observed weeks
+    let mSum = 0, mCount = 0;
+    for (let i = 0; i < cum.length && i < result.timeline.length; i++) {
+      const modeled = result.timeline[i].enrolled;
+      if (modeled > 0) { mSum += cum[i] / modeled; mCount++; }
+    }
+    const fitMultiplier = mCount > 0 ? mSum / mCount : 1;
+    setActualsData({ values: cum, fitMultiplier: +fitMultiplier.toFixed(3), cumulative: looksCumulative });
+    setShowActualsPanel(false);
+    showToast(`Applied actuals: ${cum.length} weeks of data (fit = ${fitMultiplier.toFixed(2)}x modeled)`);
+  };
+  const clearActuals = () => { setActualsData(null); setActualsInput(''); showToast('Cleared actuals'); };
 
   const exportConfig = () => {
     const config = { template, sources, stages, targetN, numSites, sites, siteTargetN, siteScenario, ssIdentity, ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssTreatmentDuration, ssTargetN, exportedAt: new Date().toISOString() };
@@ -1601,8 +1991,20 @@ function App() {
         <div className="topbar-controls">
           {activeTab === 'tutorial' && <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Getting started with Trialsim</span>}
           {activeTab === 'study' && <>
-            <select value={template} onChange={e => { if (!confirm('Switch template? Current configuration will be replaced.')) return; setTemplate(e.target.value); loadTemplate(e.target.value); }}>
+            <select value={template} onChange={e => { if (!confirm('Switch template? Current configuration will be replaced.')) return; setTemplate(e.target.value); loadTemplate(e.target.value); setTaPreset('none'); }}>
               {Object.entries(TEMPLATES).map(([k, v]) => <option key={k} value={k}>{v.name} {'\u2014'} {v.desc}</option>)}
+            </select>
+            <select value={taPreset} title="Apply therapeutic-area adjustments to rates and conversions" onChange={e => {
+              const nk = e.target.value;
+              if (nk !== 'none' && !confirm(`Apply ${TA_PRESETS[nk].name} adjustments to current sources and funnel stages?`)) return;
+              if (nk !== 'none') {
+                const applied = applyTAPreset(nk, sources, stages);
+                setSources(applied.sources); setStages(applied.stages);
+                showToast(`Applied ${TA_PRESETS[nk].name} preset`);
+              }
+              setTaPreset(nk);
+            }}>
+              {Object.entries(TA_PRESETS).map(([k, v]) => <option key={k} value={k}>TA: {v.name}</option>)}
             </select>
             <div className="field"><label>Target N</label><input type="number" value={targetN} onChange={e => setTargetN(Math.max(1, +e.target.value || 1))} /></div>
           </>}
@@ -1621,24 +2023,49 @@ function App() {
           </>}
         </div>
         <div className="topbar-right">
-          <button className="btn btn-primary" onClick={() => { if (isPlaying) { setIsPlaying(false); setAnimFrame(null); setMilestone(null); } else setIsPlaying(true); }}>
-            {isPlaying ? '\u25A0 Stop' : '\u25B6 Play'}
+          <button className="btn btn-primary" title="Animate the enrollment curve week-by-week. Results update in real-time as you edit." onClick={() => { if (isPlaying) { setIsPlaying(false); setAnimFrame(null); setMilestone(null); } else setIsPlaying(true); }}>
+            {isPlaying ? '\u25A0 Stop' : '\u25B6 Replay'}
           </button>
-          {isPlaying && (
-            <div className="speed-control">
-              <label>Speed</label>
-              <input type="range" min="0.25" max="5" step="0.25" value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)} />
-              <span className="speed-val">{playSpeed}x</span>
-            </div>
+          {isPlaying && currentTimeline.length > 0 && (
+            <>
+              <div className="speed-control">
+                <label>Speed</label>
+                <input type="range" min="0.25" max="5" step="0.25" value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)} />
+                <span className="speed-val">{playSpeed}x</span>
+              </div>
+              <div className="scrubber-control">
+                <label>Week</label>
+                <input type="range" min="0" max={currentTimeline.length - 1} step="1" value={animFrame ?? 0} onChange={e => { if (animRef.current) clearInterval(animRef.current); setAnimFrame(+e.target.value); }} />
+                <span className="speed-val">{(animFrame ?? 0) + 1}</span>
+              </div>
+            </>
           )}
           {activeTab !== 'home' && activeTab !== 'tutorial' && <>
-            <button className="btn" onClick={() => { const name = prompt('Name this scenario snapshot:', 'Baseline'); if (name === null) return; setPrevResult(currentResult); setSnapshotName(name || 'Baseline'); setSnapshotTab(activeTab); setCompareOn(true); showToast(`Snapshot saved: ${name || 'Baseline'}`); }}>Snapshot</button>
+            <button className="btn" onClick={() => {
+              const name = prompt('Name this scenario snapshot:', `Scenario ${snapshots.filter(s => s.tab === activeTab).length + 1}`);
+              if (name === null) return;
+              const finalName = name || 'Baseline';
+              setPrevResult(currentResult); setSnapshotName(finalName); setSnapshotTab(activeTab); setCompareOn(true);
+              const statSummary = {
+                weeksToTarget: currentResult.weeksToTarget, totalEnrolled: currentResult.totalEnrolled,
+                avgEnrollPerWeek: currentResult.avgEnrollPerWeek, screenFailRate: currentResult.screenFailRate,
+                costPerEnrolled: currentResult.costPerEnrolled || 0, totalCost: currentResult.totalCost || 0,
+                targetN: targetForTab, fpi: currentResult.fpi,
+              };
+              setSnapshots(p => [...p, { id: `snap_${Date.now()}`, name: finalName, tab: activeTab, result: currentResult, stats: statSummary, ts: new Date().toISOString() }]);
+              showToast(`Snapshot saved: ${finalName}`);
+            }}>Snapshot</button>
+            <button className="btn" onClick={() => setShowSnapshotsPanel(s => !s)} style={{ color: snapshots.length > 0 ? 'var(--accent)' : 'var(--text3)' }}>Scenarios ({snapshots.length})</button>
             {compareOn && <button className="btn" onClick={() => setCompareOn(false)} style={{ color: 'var(--orange)' }}>Clear</button>}
           </>}
           <div className="topbar-sep" />
           {hasEdited && <div className="save-reminder" onClick={exportConfig} style={{ cursor: 'pointer' }}>Unsaved changes &middot; Export to save</div>}
+          <button className="btn btn-ghost" onClick={shareURL} title="Copy shareable link">Share</button>
+          <button className="btn btn-ghost" onClick={exportPNG} title="Export current view as PNG image">PNG</button>
+          <button className="btn btn-ghost" onClick={exportPDF} title="Print or save as PDF">PDF</button>
           <button className="btn btn-ghost" onClick={() => { exportConfig(); setHasEdited(false); }}>Export</button>
           <button className="btn btn-ghost" onClick={importConfig}>Import</button>
+          <button className="btn btn-ghost" onClick={resetAll} title="Reset to defaults" style={{ color: 'var(--orange)' }}>Reset</button>
         </div>
       </div>
 
@@ -1866,17 +2293,54 @@ function App() {
             })()}
             <div className="results-grid">
               <div className="result-card">
-                <h4>Enrollment Timeline</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <h4>Enrollment Timeline</h4>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <label className="mc-toggle" title="Run 200 simulations with ±25% rate variance to show uncertainty ranges">
+                      <input type="checkbox" checked={showMonteCarlo} onChange={e => setShowMonteCarlo(e.target.checked)} />
+                      <span>Uncertainty (P10-P90)</span>
+                    </label>
+                    <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => setShowActualsPanel(true)} title="Paste week-by-week actual enrollment to refit the forecast">
+                      {actualsData ? `Actuals: ${actualsData.values.length} wks` : '+ Actuals'}
+                    </button>
+                    {actualsData && <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 6px', color: 'var(--red)' }} onClick={clearActuals}>&times;</button>}
+                  </div>
+                </div>
+                {actualsData && (
+                  <div className="mc-summary" style={{ borderColor: 'var(--accent)' }}>
+                    <span><strong>Fit:</strong> {actualsData.fitMultiplier}x modeled</span>
+                    <span><strong>Observed:</strong> {actualsData.values[actualsData.values.length - 1]} enrolled in {actualsData.values.length} wks</span>
+                    <span style={{ color: actualsData.fitMultiplier < 0.8 ? 'var(--red)' : actualsData.fitMultiplier > 1.2 ? 'var(--green)' : 'var(--text2)' }}>
+                      {actualsData.fitMultiplier < 0.8 ? 'Behind forecast' : actualsData.fitMultiplier > 1.2 ? 'Ahead of forecast' : 'On forecast'}
+                    </span>
+                  </div>
+                )}
+                {showMonteCarlo && monteCarloResult && (
+                  <div className="mc-summary">
+                    <span><strong>P10:</strong> {monteCarloResult.prob.p10 > 104 ? '>104' : monteCarloResult.prob.p10} wk</span>
+                    <span><strong>P50:</strong> {monteCarloResult.prob.p50 > 104 ? '>104' : monteCarloResult.prob.p50} wk</span>
+                    <span><strong>P90:</strong> {monteCarloResult.prob.p90 > 104 ? '>104' : monteCarloResult.prob.p90} wk</span>
+                    <span style={{ color: monteCarloResult.completedPct < 80 ? 'var(--red)' : 'var(--green)' }}><strong>{monteCarloResult.completedPct}%</strong> of runs completed</span>
+                  </div>
+                )}
                 {compareOn && prevResult && snapshotTab === activeTab && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
                 <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
+                  <AreaChart data={showMonteCarlo && monteCarloResult ? monteCarloResult.bands : visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                     <XAxis dataKey="week" stroke="#8c857e" tick={{ fontSize: 10 }} domain={[1, result.timeline.length]} label={{ value: 'Week', position: 'insideBottom', offset: -2, style: { fontSize: 10, fill: '#8c857e' } }} />
                     <YAxis stroke="#8c857e" tick={{ fontSize: 10 }} domain={[0, Math.ceil(targetN * 1.1)]} />
-                    <RTooltip contentStyle={{ background: '#fff', border: '1px solid #d4cfca', borderRadius: 6, fontSize: 11, color: '#1e1e1e' }} formatter={(v) => [v, 'Enrolled']} labelFormatter={(w) => `Week ${w}`} />
+                    <RTooltip contentStyle={{ background: '#fff', border: '1px solid #d4cfca', borderRadius: 6, fontSize: 11, color: '#1e1e1e' }} labelFormatter={(w) => `Week ${w}`} />
                     <ReferenceLine y={targetN} stroke="#b07d20" strokeDasharray="6 3" label={{ value: `Target: ${targetN}`, position: 'right', style: { fontSize: 10, fill: '#b07d20' } }} />
-                    {compareOn && prevResult && snapshotTab === activeTab && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} />}
-                    <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill="rgba(176,78,48,0.12)" strokeWidth={2.5} dot={false} />
+                    {showMonteCarlo && monteCarloResult && <>
+                      <Area type="monotone" dataKey="p90" stroke="none" fill="rgba(176,78,48,0.10)" />
+                      <Area type="monotone" dataKey="p10" stroke="none" fill="#fff" />
+                      <Area type="monotone" dataKey="p50" stroke="#b04e30" fill="none" strokeWidth={2.5} dot={false} />
+                    </>}
+                    {!showMonteCarlo && <>
+                      {compareOn && prevResult && snapshotTab === activeTab && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} />}
+                      <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill="rgba(176,78,48,0.12)" strokeWidth={2.5} dot={false} />
+                      {actualsData && <Area type="monotone" dataKey="actual" data={actualsData.values.map((v, i) => ({ week: i + 1, actual: v }))} stroke="#2d7a50" strokeWidth={2.5} fill="none" dot={{ r: 3, fill: '#2d7a50' }} />}
+                    </>}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -1895,6 +2359,17 @@ function App() {
                     <div key={s.id} className="sb-row"><div className="sb-label" title={s.name}>{s.name}</div><div className="sb-track"><div className="sb-fill" style={{ width: `${result.sourcePercents[s.id] || 0}%`, background: CAT_COLORS[s.category] }} /></div><div className="sb-val">{result.sourcePercents[s.id] || 0}%</div></div>
                   ))}
                 </div>
+              </div>
+            </div>
+            <div className="result-card" style={{ marginTop: 14 }}>
+              <h4>Diagnostics & Suggestions</h4>
+              <div className="diagnostics-list">
+                {diagnostics.map((d, i) => (
+                  <div key={i} className={`diag-item diag-${d.severity}`}>
+                    <div className="diag-icon">{d.severity === 'critical' ? '!' : d.severity === 'high' ? '!' : d.severity === 'medium' ? 'i' : d.severity === 'low' ? 'i' : '\u2713'}</div>
+                    <div className="diag-body"><div className="diag-title">{d.title}</div><div className="diag-text">{d.body}</div></div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -2138,6 +2613,71 @@ function App() {
         }
         return null;
       })()}
+      {showSnapshotsPanel && (
+        <div className="snapshots-overlay" onClick={e => { if (e.target === e.currentTarget) setShowSnapshotsPanel(false); }}>
+          <div className="snapshots-panel">
+            <div className="snapshots-header">
+              <h3>Saved Scenarios</h3>
+              <button className="config-close" onClick={() => setShowSnapshotsPanel(false)}>&times;</button>
+            </div>
+            <div className="snapshots-body">
+              {snapshots.length === 0 && <p style={{ fontSize: 12, color: 'var(--text3)', padding: 20 }}>No snapshots yet. Click <strong>Snapshot</strong> in the toolbar to save the current scenario.</p>}
+              {snapshots.length > 0 && (
+                <div className="snap-table-wrap">
+                  <table className="snap-table">
+                    <thead>
+                      <tr>
+                        <th>Scenario</th><th>View</th><th>Time</th><th>Rate</th><th>SF%</th><th>Cost/Pt</th><th>Total $</th><th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {snapshots.map(s => {
+                        const viewLabel = s.tab === 'study' ? 'Study' : s.tab === 'site' ? 'Multi-Site' : 'Single Site';
+                        return (
+                          <tr key={s.id} className={prevResult === s.result ? 'snap-active' : ''}>
+                            <td><strong>{s.name}</strong><div className="snap-ts">{new Date(s.ts).toLocaleString()}</div></td>
+                            <td>{viewLabel}</td>
+                            <td>{s.stats.weeksToTarget ? `${s.stats.weeksToTarget} wk` : '>104'}</td>
+                            <td>{s.stats.avgEnrollPerWeek}/wk</td>
+                            <td>{s.stats.screenFailRate}%</td>
+                            <td>${s.stats.costPerEnrolled.toLocaleString()}</td>
+                            <td>${s.stats.totalCost.toLocaleString()}</td>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              <button className="snap-action" onClick={() => { setPrevResult(s.result); setSnapshotName(s.name); setSnapshotTab(s.tab); setCompareOn(true); setActiveTab(s.tab); showToast(`Comparing vs ${s.name}`); setShowSnapshotsPanel(false); }}>Compare</button>
+                              <button className="snap-action snap-del" onClick={() => { setSnapshots(p => p.filter(x => x.id !== s.id)); if (prevResult === s.result) setCompareOn(false); }}>&times;</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <div className="snap-footer">
+                    <button className="btn btn-ghost" onClick={() => { if (confirm('Clear all saved scenarios?')) { setSnapshots([]); setCompareOn(false); } }}>Clear All</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {showActualsPanel && (
+        <div className="snapshots-overlay" onClick={e => { if (e.target === e.currentTarget) setShowActualsPanel(false); }}>
+          <div className="snapshots-panel" style={{ maxWidth: 560 }}>
+            <div className="snapshots-header">
+              <h3>Paste Actual Enrollment</h3>
+              <button className="config-close" onClick={() => setShowActualsPanel(false)}>&times;</button>
+            </div>
+            <div className="snapshots-body" style={{ padding: 20 }}>
+              <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>Paste week-by-week enrollment (one number per week, comma- or newline-separated). Enter either cumulative totals or weekly new enrollments.</p>
+              <textarea value={actualsInput} onChange={e => setActualsInput(e.target.value)} rows={8} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10, fontSize: 12, fontFamily: 'monospace', resize: 'vertical', color: 'var(--text)', background: 'var(--bg2)' }} placeholder="e.g.&#10;3, 8, 14, 19, 27&#10;or one per line&#10;3&#10;8&#10;14" />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                <button className="btn btn-ghost" onClick={() => setShowActualsPanel(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={applyActuals}>Apply & Refit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {milestone && <MilestoneBadge key={milestone.key} milestone={milestone} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
