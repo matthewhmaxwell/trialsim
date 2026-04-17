@@ -2030,6 +2030,10 @@ function App() {
             <h2>Welcome to Trialsim</h2>
             <p className="tp-sub">An interactive enrollment simulator for clinical trials. Model how different recruitment strategies, site configurations, and protocol designs affect your enrollment timeline and budget.</p>
 
+            <div style={{ background: 'var(--accent-bg)', border: '1px solid rgba(176,78,48,0.25)', borderRadius: 'var(--radius)', padding: '12px 16px', marginBottom: 20, fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--accent)' }}>New in v0.4:</strong> Uncertainty fan (P10–P90) on by default, sourced citations on every default (click the <span style={{ fontFamily: 'monospace' }}>&#x24D8;</span> markers), one-click PDF <strong>Report</strong>, <strong>Calibrate</strong> from observed actuals (per-site or per-source), persistent scenario <strong>Library</strong>, and <strong>Undo</strong> (⌘Z / Ctrl-Z).
+            </div>
+
             <div className="concept-grid">
               <div className="concept-card">
                 <h4><span className="cc-icon">&#x1F465;</span> Patients flow through a funnel</h4>
@@ -2044,8 +2048,24 @@ function App() {
                 <p>Study View models the whole trial at aggregate level. Multi-Site View models each site individually. Single Site View zooms into one site's startup and patient pipeline. Use all three together or independently.</p>
               </div>
               <div className="concept-card">
+                <h4><span className="cc-icon">&#x1F3AF;</span> Uncertainty by default</h4>
+                <p>Every enrollment curve shows the <strong>P10 / P50 / P90</strong> band from 200 seeded Monte Carlo runs — not a false-precision single line. Toggle the fan off per view if you want a clean deterministic curve. Same config always produces the same fan (seeded PRNG, no jitter).</p>
+              </div>
+              <div className="concept-card">
+                <h4><span className="cc-icon">&#x1F4DA;</span> Nothing is invented</h4>
+                <p>Every default number (source volumes, conversion rates, TA multipliers, startup durations, coordinator capacity) has a <span style={{ fontFamily: 'monospace' }}>&#x24D8;</span> marker nearby. Hover it to see the source (Tufts CSDD, CTTI, IQVIA, CISCRP, SCRS, etc.). Disagree? Edit the number.</p>
+              </div>
+              <div className="concept-card">
+                <h4><span className="cc-icon">&#x26A0;</span> Agentic AI is speculative</h4>
+                <p>Sources in the "Agentic / AI" category are flagged with a <span style={{ color: 'var(--orange)', fontWeight: 700 }}>&#x26A0;</span>. These are <em>scenario assumptions</em> — "what if this channel performs at X?" — not observed benchmarks. Calibrate against your own pilots before planning.</p>
+              </div>
+              <div className="concept-card">
                 <h4><span className="cc-icon">&#x1F3AC;</span> Watch it play out</h4>
-                <p>Click <strong>Play</strong> to animate the simulation week by week. You'll see the enrollment curve draw in real-time, milestone badges pop up at 25/50/75/100%, and particles flow through the pipeline. Adjust speed with the slider.</p>
+                <p>Click <strong>Replay</strong> to animate the simulation week by week. Milestone badges pop up at 25/50/75/100% enrollment, and particles flow through the pipeline. Adjust speed with the slider.</p>
+              </div>
+              <div className="concept-card">
+                <h4><span className="cc-icon">&#x21B6;</span> Undo anything risky</h4>
+                <p>Destructive actions (template switch, TA apply, calibrate, load scenario) push to an undo stack. Hit <strong>⌘Z</strong> (or Ctrl-Z) to reverse, <strong>⇧⌘Z</strong> to redo. Up to 20 steps.</p>
               </div>
             </div>
 
@@ -2059,14 +2079,14 @@ function App() {
                 <div className="vc-when">Early Planning</div>
                 <h4>Study View</h4>
                 <p>Model your recruitment source mix and patient funnel. Answer: "If we use these sources with these conversion rates, when do we hit target N?"</p>
-                <p>Add/remove patient sources (clinical, digital, agentic AI). Configure each funnel stage's conversion, throughput, and dropout. Compare scenarios with the Snapshot feature.</p>
+                <p>Add/remove patient sources (clinical, digital, agentic AI). Configure each funnel stage's conversion, throughput, and dropout. Apply a therapeutic-area preset (Oncology, CNS, Vaccines, etc.) to shift defaults to TA-specific ranges.</p>
                 <div className="vc-try">Open Study View &rarr;</div>
               </div>
               <div className="view-card" onClick={() => setActiveTab('site')}>
                 <div className="vc-when">Execution Planning</div>
                 <h4>Multi-Site View</h4>
                 <p>Model enrollment across your actual site portfolio. Answer: "Given these 40 sites with these rates, when do we finish?"</p>
-                <p>Edit sites inline, import from CSV, toggle sites on/off. See which sites contribute most in the waterfall chart. Click the arrow on any row to drill into its detailed view.</p>
+                <p>Edit sites inline, import from CSV, toggle sites on/off. Each site has a 4-week ramp-up + Poisson variance in the uncertainty fan. Calibrate per-site rates from observed actuals. Click the arrow on any row to drill into its detailed view.</p>
                 <div className="vc-try">Open Multi-Site View &rarr;</div>
               </div>
               <div className="view-card" onClick={() => setActiveTab('single')}>
@@ -2083,12 +2103,13 @@ function App() {
             <h3><span className="step-num">1</span> Quick Start: Your First Scenario</h3>
             <p>The fastest way to get started:</p>
             <p><strong>1.</strong> Go to <strong>Study View</strong> and pick a trial template (Phase 1, Phase 2/3, Rare Disease, or Decentralized). This pre-loads appropriate sources, funnel stages, and target enrollment.</p>
-            <p><strong>2.</strong> Adjust the <strong>Target N</strong> in the toolbar to match your actual enrollment target.</p>
-            <p><strong>3.</strong> Click any source card on the left to modify its patient volume, or click a funnel stage to change conversion rates.</p>
-            <p><strong>4.</strong> Watch the Results section update in real-time as you make changes.</p>
-            <p><strong>5.</strong> Click <strong>Play</strong> to see the enrollment build week by week.</p>
+            <p><strong>2.</strong> Apply a therapeutic-area preset from the <strong>TA:</strong> dropdown (e.g. Oncology, CNS). Each applies literature-sourced multipliers to rates and conversions.</p>
+            <p><strong>3.</strong> Adjust <strong>Target N</strong> to match your actual enrollment target.</p>
+            <p><strong>4.</strong> Click any source card or funnel stage to edit its parameters. The <span style={{ fontFamily: 'monospace' }}>&#x24D8;</span> marker next to each field shows where the default came from.</p>
+            <p><strong>5.</strong> Watch the Results section update in real-time. The enrollment curve shows the P50 line with the P10–P90 uncertainty fan.</p>
+            <p><strong>6.</strong> Click <strong>Replay</strong> to animate the enrollment build week by week.</p>
 
-            <div className="tip"><strong>Tip:</strong> Use the <strong>Snapshot</strong> button to save your current results as a baseline, then make changes. The enrollment curve will overlay your baseline as a dashed line so you can see the difference.</div>
+            <div className="tip"><strong>Tip:</strong> Made a mistake? <strong>⌘Z</strong> (or Ctrl-Z) undoes template switches, TA applies, and calibrations. Safe to experiment.</div>
 
             <h3><span className="step-num">2</span> Going Deeper: Site-Level Modeling</h3>
             <p>Once you have a study-level plan, switch to <strong>Multi-Site View</strong> to model specific sites:</p>
@@ -2099,8 +2120,20 @@ function App() {
 
             <div className="tip"><strong>Tip:</strong> Sort the table by Rate/wk to quickly identify your highest and lowest performing sites. The waterfall chart shows the top 25 contributors at a glance.</div>
 
-            <h3><span className="step-num">3</span> Saving and Sharing</h3>
-            <p>Click <strong>Export</strong> in the toolbar to download your entire configuration as a JSON file. This captures all three views' settings. Share it with colleagues and they can <strong>Import</strong> it to see your exact scenario.</p>
+            <h3><span className="step-num">3</span> Calibrate from Actuals</h3>
+            <p>If you have observed enrollment data (from a pilot or an ongoing trial), rescale the forecast to match reality:</p>
+            <p><strong>1.</strong> In <strong>Study View</strong>, click <strong>+ Actuals</strong> above the enrollment curve — paste a week-by-week cumulative total.</p>
+            <p><strong>2.</strong> In <strong>Multi-Site View</strong>, click <strong>+ Calibrate</strong> — paste CSV with <code>site_name, weeks_active, enrolled</code>. Each matched site's rate is rescaled.</p>
+            <p><strong>3.</strong> Or use the <strong>Per-Source</strong> tab to rescale source volumes from observed identified counts.</p>
+            <p>Calibrated sites get a small green dot in the site table. Hover for the observed rate and multiplier.</p>
+
+            <h3><span className="step-num">4</span> Save Scenarios &amp; Share Reports</h3>
+            <p><strong>Save Scenario</strong> bookmarks the current config with an auto-name. Open the <strong>Library</strong> to rename, reload, duplicate, compare, or export. Scenarios persist in this browser across reloads.</p>
+            <p>Click <strong>Report</strong> in the toolbar for a branded, print-ready scenario report with:</p>
+            <p style={{ marginLeft: 16 }}>&#x2022; Cover page with title, template, TA preset, and timestamp<br/>&#x2022; Summary stats (deterministic and P10/P50/P90 from Monte Carlo)<br/>&#x2022; The enrollment chart (as SVG, prints crisply)<br/>&#x2022; Tables for sources, funnel stages, active sites, or startup milestones<br/>&#x2022; An <strong>Assumptions &amp; Sources</strong> appendix citing every default</p>
+            <p>Use Cmd/Ctrl-P to save as PDF, or share the HTML directly.</p>
+
+            <div className="tip"><strong>Tip:</strong> Use <strong>Export</strong> (JSON) to share a full config with a colleague; <strong>Report</strong> (PDF) to share results with a stakeholder who won't run the tool.</div>
 
             <hr />
 
@@ -2112,10 +2145,12 @@ function App() {
                 <tr><td>Throughput</td><td>Maximum patients a stage can process per week. This is a capacity constraint — if more patients arrive than throughput allows, they queue up.</td></tr>
                 <tr><td>Dropout Rate</td><td>Percentage of patients who leave voluntarily mid-stage — distinct from screen failure. These patients were eligible but chose to withdraw.</td></tr>
                 <tr><td>Screen Failure</td><td>Overall percentage of identified patients who never reach enrollment, across all funnel stages combined.</td></tr>
-                <tr><td>Ramp-up</td><td>Weeks for a source to reach full volume. Models the real-world delay before a new recruitment channel is fully operational.</td></tr>
+                <tr><td>Ramp-up</td><td>Weeks for a source or site to reach full volume. Multi-Site sites default to a 4-week ramp to reflect typical post-SIV behavior.</td></tr>
                 <tr><td>FPI (First Patient In)</td><td>The week when a site enrolls its first patient. In Single Site View, this is computed from the critical path across all startup tracks.</td></tr>
                 <tr><td>Activation Week</td><td>The week a site comes online and starts enrolling. In Multi-Site View, sites with later activation weeks start contributing later.</td></tr>
                 <tr><td>Max Concurrent</td><td>Maximum patients a site can manage simultaneously. Constrained by coordinator capacity (~8 patients per coordinator FTE).</td></tr>
+                <tr><td>P10 / P50 / P90</td><td>10th / 50th / 90th percentile completion week across 200 Monte Carlo iterations. P50 is the "most likely" outcome; P90 is the conservative planning week.</td></tr>
+                <tr><td>Calibration</td><td>Rescaling model parameters (site rates or source volumes) to match observed actuals from a pilot or ongoing trial. Trialsim fits a per-entity multiplier.</td></tr>
               </tbody>
             </table>
 
