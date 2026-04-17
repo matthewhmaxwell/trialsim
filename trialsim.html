@@ -22,8 +22,9 @@
 <meta name="twitter:image" content="https://trialsim.aimronline.org/og-image.png">
 <meta name="twitter:image:alt" content="Trialsim dashboard — enrollment timeline with uncertainty fan">
 <meta name="theme-color" content="#b04e30">
-<link rel="icon" type="image/png" href="https://aimronline.org/aimr-logo.png">
-<link rel="apple-touch-icon" href="https://aimronline.org/aimr-logo.png">
+<link rel="icon" type="image/x-icon" href="https://aimronline.org/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="https://aimronline.org/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://aimronline.org/apple-touch-icon.png">
 <script defer data-domain="trialsim.aimronline.org" src="https://plausible.io/js/script.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -1050,6 +1051,7 @@ function App() {
 
   // ── Shared ──
   const [toast, setToast] = useState(null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [animFrame, setAnimFrame] = useState(null);
   const animRef = useRef(null);
@@ -1824,6 +1826,21 @@ function App() {
           <p className="hs-sub">Every feature designed around the real questions sponsors and CROs ask during trial planning and execution.</p>
           <div className="home-features">
             <div className="home-feat">
+              <div className="hf-icon">&#x1F3AF;</div>
+              <h3>Uncertainty by default</h3>
+              <p>Every enrollment curve shows P10 / P50 / P90 from 200 seeded Monte Carlo runs. No "enable uncertainty" checkbox. Same config produces the same fan — no jitter on re-render.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F4DA;</div>
+              <h3>Every number sourced</h3>
+              <p>Hover any <strong>&#x24D8;</strong> marker to see the source of a default — Tufts CSDD, CTTI, IQVIA, CISCRP, SCRS. If you disagree, edit the number. Nothing invented.</p>
+            </div>
+            <div className="home-feat">
+              <div className="hf-icon">&#x1F4C8;</div>
+              <h3>Calibrate from actuals</h3>
+              <p>Paste per-site or per-source actuals from a pilot. Trialsim fits a multiplier to each matched entity and refits the forecast. Calibrated sites get a green indicator.</p>
+            </div>
+            <div className="home-feat">
               <div className="hf-icon">&#x1F50D;</div>
               <h3>Source Mix Optimization</h3>
               <p>Model 9 patient source types across clinical, digital, and agentic AI categories. See how adding or removing channels shifts your enrollment timeline and cost per patient.</p>
@@ -1834,14 +1851,9 @@ function App() {
               <p>Configure each screening stage with conversion rates, throughput capacity, dropout rates, and processing time. Identify bottlenecks with the utilization heatmap.</p>
             </div>
             <div className="home-feat">
-              <div className="hf-icon">&#x1F4C8;</div>
-              <h3>Real-Time Results</h3>
-              <p>Every parameter change instantly recalculates enrollment timeline, rate, screen failure, and cost. No waiting for batch runs. Watch the simulation animate week by week.</p>
-            </div>
-            <div className="home-feat">
               <div className="hf-icon">&#x1F3E5;</div>
               <h3>Per-Site Modeling</h3>
-              <p>Model 40+ individual sites with different enrollment rates, activation timelines, and screen failure rates. Import your feasibility list via CSV. Identify top and bottom performers.</p>
+              <p>Model 40+ individual sites with different enrollment rates, activation timelines, screen failure rates, and ramp-up. Import your feasibility list via CSV.</p>
             </div>
             <div className="home-feat">
               <div className="hf-icon">&#x1F4C5;</div>
@@ -1849,14 +1861,14 @@ function App() {
               <p>Model parallel regulatory, legal, and operational startup tracks for each site. Milestones auto-cascade. First Patient In is computed from the critical path.</p>
             </div>
             <div className="home-feat">
-              <div className="hf-icon">&#x1F504;</div>
-              <h3>Scenario Comparison</h3>
-              <p>Snapshot your baseline, make changes, and overlay the comparison on the enrollment curve. See exactly how many weeks a strategy change saves or costs.</p>
+              <div className="hf-icon">&#x1F4C4;</div>
+              <h3>One-click PDF report</h3>
+              <p>Generate a branded scenario report with the enrollment chart, summary stats, source/site tables, and a full assumptions appendix. Use Cmd-P to save as PDF.</p>
             </div>
             <div className="home-feat">
-              <div className="hf-icon">&#x1F916;</div>
-              <h3>Agentic AI Sources</h3>
-              <p>Model next-generation recruitment channels like agentic outreach, AI pre-screening, and automated re-engagement alongside traditional sources.</p>
+              <div className="hf-icon">&#x1F4DA;</div>
+              <h3>Scenario Library &amp; Undo</h3>
+              <p>Save, rename, load, duplicate, and compare scenarios — persisted in your browser. Cmd-Z (or Ctrl-Z) undoes template switches, TA applies, and calibrations.</p>
             </div>
             <div className="home-feat">
               <div className="hf-icon">&#x1F517;</div>
@@ -1864,9 +1876,14 @@ function App() {
               <p>Click any site in the multi-site table to drill into its detailed view. Changes to startup timelines and referral pipelines sync back to the portfolio automatically.</p>
             </div>
             <div className="home-feat">
+              <div className="hf-icon">&#x1F916;</div>
+              <h3>Agentic AI Sources</h3>
+              <p>Model next-generation recruitment channels like agentic outreach, AI pre-screening, and automated re-engagement. Flagged as projections, not benchmarks — calibrate against your own pilots.</p>
+            </div>
+            <div className="home-feat">
               <div className="hf-icon">&#x1F4BE;</div>
-              <h3>Export & Share</h3>
-              <p>Export your entire configuration as JSON. Share with colleagues who can import it to see your exact scenario. All three views' settings are preserved.</p>
+              <h3>Share &amp; Export</h3>
+              <p>Shareable URL encodes the full config. JSON export for persistence across colleagues. Zero backend — nothing leaves your browser.</p>
             </div>
           </div>
         </div>
@@ -2013,13 +2030,34 @@ function App() {
           </>}
           <div className="topbar-sep" />
           {hasEdited && <div className="save-reminder" onClick={exportConfig} style={{ cursor: 'pointer' }}>Unsaved changes &middot; Export to save</div>}
-          <button className="btn btn-ghost" onClick={shareURL} title="Copy shareable link">Share</button>
           <button className="btn btn-primary" onClick={exportReport} title="Generate a branded scenario report with charts, stats, and sourced assumptions — save as PDF or share with colleagues" style={{ fontSize: 10 }}>Report</button>
-          <button className="btn btn-ghost" onClick={exportPNG} title="Export current view as PNG image">PNG</button>
-          <button className="btn btn-ghost" onClick={exportPDF} title="Print current page">Print</button>
-          <button className="btn btn-ghost" onClick={() => { exportConfig(); setHasEdited(false); }}>Export</button>
-          <button className="btn btn-ghost" onClick={importConfig}>Import</button>
-          <button className="btn btn-ghost" onClick={resetAll} title="Reset to defaults" style={{ color: 'var(--orange)' }}>Reset</button>
+          <div style={{ position: 'relative' }}>
+            <button className="btn btn-ghost" onClick={() => setMoreMenuOpen(v => !v)} title="More actions" aria-haspopup="menu" aria-expanded={moreMenuOpen}>{'\u22EF'}</button>
+            {moreMenuOpen && (
+              <>
+                <div onClick={() => setMoreMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', padding: 4, zIndex: 50, minWidth: 160, display: 'flex', flexDirection: 'column' }}>
+                  {[
+                    { label: 'Share link', action: shareURL, title: 'Copy shareable link' },
+                    { label: 'Export PNG', action: exportPNG, title: 'Download current view as a PNG' },
+                    { label: 'Print page', action: exportPDF, title: 'Open browser print dialog' },
+                    { label: 'Export config (JSON)', action: () => { exportConfig(); setHasEdited(false); }, title: 'Download full configuration' },
+                    { label: 'Import config (JSON)', action: importConfig, title: 'Load a previously exported configuration' },
+                    { sep: true },
+                    { label: 'Reset to defaults', action: resetAll, danger: true, title: 'Discard all changes and reload' },
+                  ].map((item, i) => item.sep ? <div key={i} style={{ height: 1, background: 'var(--bg3)', margin: '4px 6px' }} /> : (
+                    <button key={i} onClick={() => { setMoreMenuOpen(false); item.action(); }} title={item.title} style={{
+                      padding: '7px 12px', fontSize: 12, fontWeight: 500, textAlign: 'left',
+                      background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4,
+                      color: item.danger ? 'var(--red)' : 'var(--text2)', fontFamily: 'inherit',
+                    }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg3)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
