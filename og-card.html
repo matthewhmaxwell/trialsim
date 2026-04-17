@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Trialsim OG Card</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; font-family: 'Inter', -apple-system, system-ui, sans-serif; background: #f5f3f0; color: #1e1e1e; -webkit-font-smoothing: antialiased; }
+  .card { width: 1200px; height: 630px; display: flex; flex-direction: column; padding: 56px 72px; position: relative; background: linear-gradient(135deg, #f5f3f0 0%, #eceae6 100%); }
+  .brand { display: flex; align-items: center; gap: 14px; color: #b04e30; font-size: 15px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
+  .brand::before { content: ''; width: 40px; height: 3px; background: #b04e30; }
+  h1 { font-size: 78px; font-weight: 800; letter-spacing: -2px; line-height: 1.02; margin-top: 18px; color: #1e1e1e; max-width: 720px; }
+  h1 .accent { color: #b04e30; }
+  .tagline { font-size: 22px; font-weight: 500; color: #5c5650; margin-top: 18px; line-height: 1.35; max-width: 720px; }
+  .features { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 40px; margin-top: 30px; max-width: 1000px; }
+  .feat { display: flex; align-items: center; gap: 12px; font-size: 17px; font-weight: 600; color: #1e1e1e; }
+  .feat .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .feat .d1 { background: #b04e30; }
+  .feat .d2 { background: #2d7a50; }
+  .feat .d3 { background: #3e73a8; }
+  .feat .d4 { background: #b07d20; }
+  .footer { position: absolute; left: 72px; right: 72px; bottom: 40px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #d4cfca; padding-top: 20px; }
+  .foot-left { font-size: 18px; font-weight: 600; color: #5c5650; }
+  .foot-url { font-size: 16px; font-weight: 500; color: #b04e30; font-family: 'Menlo', monospace; }
+  .badge { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 20px; background: rgba(176,78,48,0.08); border: 1px solid rgba(176,78,48,0.25); font-size: 12px; font-weight: 700; color: #b04e30; letter-spacing: 1px; margin-left: 16px; }
+  .chart { position: absolute; right: 56px; top: 72px; width: 340px; height: 220px; background: #fff; border: 1px solid #d4cfca; border-radius: 10px; padding: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+  .chart-title { font-size: 11px; font-weight: 600; color: #8c857e; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+  .chart svg { width: 100%; height: 200px; }
+  .mc-strip { display: flex; gap: 14px; margin-top: 6px; font-size: 11px; color: #5c5650; }
+  .mc-strip strong { color: #1e1e1e; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">AIMR · Trialsim <span class="badge">v0.4</span></div>
+
+  <h1>Plan enrollment<br/>with <span class="accent">honest</span> numbers.</h1>
+
+  <p class="tagline">Interactive clinical trial enrollment simulator. Uncertainty by default. Sources cited on every number. Free, no login.</p>
+
+  <div class="features">
+    <div class="feat"><span class="dot d1"></span>P10 / P50 / P90 Monte Carlo on by default</div>
+    <div class="feat"><span class="dot d2"></span>Every default sourced (Tufts, CTTI, IQVIA)</div>
+    <div class="feat"><span class="dot d3"></span>Three linked views: Study → Portfolio → Site</div>
+    <div class="feat"><span class="dot d4"></span>One-click branded PDF scenario reports</div>
+  </div>
+
+  <div class="chart">
+    <div class="chart-title">Enrollment Timeline · P10–P90 Fan</div>
+    <svg viewBox="0 0 360 160" preserveAspectRatio="none" style="height: 150px;">
+      <defs>
+        <linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="rgba(176,78,48,0.25)" />
+          <stop offset="100%" stop-color="rgba(176,78,48,0.04)" />
+        </linearGradient>
+      </defs>
+      <!-- gridlines -->
+      <line x1="0" y1="45" x2="360" y2="45" stroke="rgba(0,0,0,0.06)" stroke-dasharray="3 3" />
+      <line x1="0" y1="90" x2="360" y2="90" stroke="rgba(0,0,0,0.06)" stroke-dasharray="3 3" />
+      <line x1="0" y1="135" x2="360" y2="135" stroke="rgba(0,0,0,0.06)" stroke-dasharray="3 3" />
+      <!-- P90 upper fan -->
+      <path d="M 0 175 C 60 155, 120 115, 180 70 C 220 45, 280 25, 360 15 L 360 175 Z" fill="url(#grad)" />
+      <!-- P10 lower cut -->
+      <path d="M 0 175 C 60 170, 120 160, 180 135 C 240 105, 300 80, 360 65 L 360 175 Z" fill="#fff" />
+      <!-- P50 line -->
+      <path d="M 0 175 C 60 162, 120 140, 180 105 C 240 75, 300 50, 360 35" stroke="#b04e30" stroke-width="2.5" fill="none" />
+      <!-- target -->
+      <line x1="0" y1="30" x2="360" y2="30" stroke="#b07d20" stroke-width="1" stroke-dasharray="4 3" />
+      <text x="355" y="25" font-size="9" font-family="Inter, sans-serif" fill="#b07d20" text-anchor="end">Target: 300</text>
+    </svg>
+    <div class="mc-strip">
+      <span><strong>P10:</strong> 16 wk</span>
+      <span><strong>P50:</strong> 30 wk</span>
+      <span><strong>P90:</strong> 52 wk</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="foot-left">American Institute for Medical Research</div>
+    <div class="foot-url">trialsim.aimronline.org</div>
+  </div>
+</div>
+</body>
+</html>
