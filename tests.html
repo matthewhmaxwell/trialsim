@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Trialsim — Unit Tests</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1e1e1e; }
+  h1 { font-size: 20px; }
+  h2 { font-size: 14px; margin-top: 1.5rem; color: #5c5650; border-bottom: 1px solid #d4cfca; padding-bottom: 4px; }
+  .test { padding: 6px 10px; margin: 4px 0; border-radius: 4px; font-family: Menlo, monospace; font-size: 12px; }
+  .ok { background: rgba(45,122,80,0.08); color: #2d7a50; }
+  .fail { background: rgba(166,61,52,0.08); color: #a63d34; }
+  .skip { background: #f5f3f0; color: #8c857e; }
+  .summary { margin-top: 2rem; padding: 12px 16px; border-radius: 6px; font-weight: 600; }
+  .summary.ok { background: #2d7a50; color: #fff; }
+  .summary.fail { background: #a63d34; color: #fff; }
+  pre { background: #f5f3f0; padding: 8px; border-radius: 4px; font-size: 11px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>Trialsim — Simulation Engine Tests</h1>
+<p style="color:#5c5650;font-size:13px;">
+  Pure-function tests against <code>simulate</code>, <code>simulateSites</code>, <code>simulateSingleSite</code>,
+  RNG determinism, and Monte Carlo seed stability. Run by opening this file in a browser
+  (or via <code>python3 -m http.server</code>, then visiting <code>/tests.html</code>).
+</p>
+<div id="results"></div>
+<div id="summary" class="summary"></div>
+
+<!-- Load the same simulation core used by the app, so tests exercise the real code (no drift). -->
+<script src="trialsim-core.js"></script>
+<script>
+
+// ─── Test harness ────────────────────────────────────────────────────
+const results = [];
+function group(name) { results.push({ type: 'group', name }); }
+function test(name, fn) {
+  try {
+    fn();
+    results.push({ type: 'test', name, status: 'ok' });
+  } catch (e) {
+    results.push({ type: 'test', name, status: 'fail', error: e.message || String(e) });
+  }
+}
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+function assertClose(a, b, tol, msg) { if (Math.abs(a - b) > tol) throw new Error(`${msg || 'close'}: expected |${a} - ${b}| <= ${tol}`); }
+
+// ═══ simulate() ═══
+group('simulate()');
+
+test('empty stages return zero enrollment', () => {
+  const r = simulate([], [], 100);
+  assert(r.totalEnrolled === 0, 'totalEnrolled should be 0');
+  assert(r.weeksToTarget === null, 'weeksToTarget should be null');
+});
+
+test('inactive sources contribute nothing', () => {
+  const sources = [{ id: 'a', volume: 20, rampUpWeeks: 1, active: false }];
+  const stages = [
+    { id: 's1', name: 'I', conversionRate: 100, throughputPerWeek: 100, avgDurationDays: 0, dropoutRate: 0 },
+    { id: 'terminal', name: 'T', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+  ];
+  const r = simulate(sources, stages, 100);
+  assert(r.totalEnrolled === 0, `should be 0 but got ${r.totalEnrolled}`);
+});
+
+test('100% conversion at all stages enrolls near-all identified', () => {
+  const sources = [{ id: 'a', volume: 10, rampUpWeeks: 1, active: true }];
+  const stages = [
+    { id: 's1', name: 'I', conversionRate: 100, throughputPerWeek: 100, avgDurationDays: 0, dropoutRate: 0 },
+    { id: 'terminal', name: 'T', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+  ];
+  const r = simulate(sources, stages, 30, 10);
+  assert(r.totalEnrolled === 30, `should enroll 30 by capacity, got ${r.totalEnrolled}`);
+  assert(r.weeksToTarget !== null, 'should hit target');
+});
+
+test('stops at target and does not overshoot', () => {
+  const sources = [{ id: 'a', volume: 100, rampUpWeeks: 1, active: true }];
+  const stages = [
+    { id: 's1', conversionRate: 100, throughputPerWeek: 500, avgDurationDays: 0, dropoutRate: 0 },
+    { id: 'terminal', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+  ];
+  const r = simulate(sources, stages, 25, 10);
+  assert(r.totalEnrolled === 25, `should stop exactly at 25, got ${r.totalEnrolled}`);
+});
+
+test('ramp-up delays early enrollment', () => {
+  const sources = [{ id: 'a', volume: 50, rampUpWeeks: 10, active: true }];
+  const stages = [
+    { id: 's1', conversionRate: 100, throughputPerWeek: 500, avgDurationDays: 0, dropoutRate: 0 },
+    { id: 'terminal', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+  ];
+  const r = simulate(sources, stages, 1000, 5);
+  // Weekly volumes ramp: 5, 10, 15, 20, 25 = 75 identified in 5 weeks
+  // 50% conversion is ignored (100% here), so ~75 should enroll
+  assert(r.totalEnrolled > 0 && r.totalEnrolled <= 75, `ramped enrollment in 5 weeks should be <= 75, got ${r.totalEnrolled}`);
+});
+
+test('output determinism: same input → same output', () => {
+  const sources = [{ id: 'a', volume: 10, rampUpWeeks: 2, active: true }];
+  const stages = [
+    { id: 's1', conversionRate: 50, throughputPerWeek: 20, avgDurationDays: 3, dropoutRate: 2 },
+    { id: 'terminal', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+  ];
+  const r1 = simulate(sources, stages, 50, 30);
+  const r2 = simulate(sources, stages, 50, 30);
+  assert(r1.totalEnrolled === r2.totalEnrolled, 'deterministic totalEnrolled');
+  assert(r1.weeksToTarget === r2.weeksToTarget, 'deterministic weeksToTarget');
+});
+
+// ═══ simulateSites() ═══
+group('simulateSites()');
+
+test('empty sites returns zero', () => {
+  const r = simulateSites([], 100);
+  assert(r.totalEnrolled === 0, 'zero enroll');
+});
+
+test('inactive sites skipped', () => {
+  const sites = [{ id: 'a', active: false, activationWeek: 1, enrollmentRate: 5, screenFailRate: 0, dropoutRate: 0 }];
+  const r = simulateSites(sites, 50);
+  assert(r.totalEnrolled === 0, 'inactive contributes 0');
+});
+
+test('pre-activation weeks contribute nothing', () => {
+  const sites = [{ id: 'a', active: true, activationWeek: 10, enrollmentRate: 5, screenFailRate: 0, dropoutRate: 0, rampWeeks: 0 }];
+  const r = simulateSites(sites, 1000, 5);
+  assert(r.totalEnrolled === 0, 'activation in week 10, but we stop at week 5');
+});
+
+test('ramp-up produces concave-up early growth', () => {
+  const sites = [{ id: 'a', active: true, activationWeek: 1, enrollmentRate: 10, screenFailRate: 0, dropoutRate: 0, rampWeeks: 4 }];
+  const r = simulateSites(sites, 10000, 6);
+  // Week 1: rate*(2/4)=5; wk2: rate*(3/4)=7.5; wk3: rate; wk4: rate; wk5: rate; wk6: rate
+  // Expected cum: 5, 12.5, 22.5, 32.5, 42.5, 52.5 → rounded 5, 12 or 13, 22 or 23...
+  assert(r.timeline[0].enrolled <= r.timeline[1].enrolled, 'week 1 <= week 2');
+  assert(r.timeline[1].weeklyNew <= r.timeline[3].weeklyNew, 'week 2 weekly increment <= week 4 (past ramp)');
+});
+
+test('cap limits total enrollment per site', () => {
+  const sites = [{ id: 'a', active: true, activationWeek: 1, enrollmentRate: 10, screenFailRate: 0, dropoutRate: 0, rampWeeks: 0, cap: 5 }];
+  const r = simulateSites(sites, 100, 20);
+  assert(r.perSiteTotal['a'] <= 5.01, `site capped at 5, got ${r.perSiteTotal['a']}`);
+});
+
+test('Poisson noise produces non-equal runs with different seeds', () => {
+  const sites = [{ id: 'a', active: true, activationWeek: 1, enrollmentRate: 5, screenFailRate: 0, dropoutRate: 0, rampWeeks: 0 }];
+  const r1 = simulateSites(sites, 1000, 10, { rng: mulberry32(42), noise: true });
+  const r2 = simulateSites(sites, 1000, 10, { rng: mulberry32(99), noise: true });
+  assert(r1.totalEnrolled !== r2.totalEnrolled, 'different seeds should produce different outcomes (Poisson variance)');
+});
+
+test('Poisson noise same seed = same outcome (determinism)', () => {
+  const sites = [{ id: 'a', active: true, activationWeek: 1, enrollmentRate: 5, screenFailRate: 0, dropoutRate: 0, rampWeeks: 0 }];
+  const r1 = simulateSites(sites, 1000, 10, { rng: mulberry32(42), noise: true });
+  const r2 = simulateSites(sites, 1000, 10, { rng: mulberry32(42), noise: true });
+  assert(r1.totalEnrolled === r2.totalEnrolled, `same seed same outcome: ${r1.totalEnrolled} vs ${r2.totalEnrolled}`);
+});
+
+// ═══ simulateSingleSite() ═══
+group('simulateSingleSite()');
+
+test('computeFPI from single-track startup', () => {
+  const startup = { regulatory: [{ startWeek: 1, durationWeeks: 4 }], legal: [], operational: [] };
+  assert(computeFPI(startup) === 6, `FPI should be 6 (end of wk5 +1), got ${computeFPI(startup)}`);
+});
+
+test('computeFPI takes critical path (max across tracks)', () => {
+  const startup = {
+    regulatory: [{ startWeek: 1, durationWeeks: 8 }],
+    legal: [{ startWeek: 1, durationWeeks: 3 }],
+    operational: [{ startWeek: 1, durationWeeks: 2 }],
+  };
+  assert(computeFPI(startup) === 10, `FPI=10 (reg is slowest), got ${computeFPI(startup)}`);
+});
+
+test('single site reports FPI phase before enrollment', () => {
+  const config = {
+    startup: { regulatory: [{ startWeek: 1, durationWeeks: 3 }], legal: [], operational: [] },
+    referrals: [{ id: 'r', volumePerWeek: 5, costPerPatient: 100 }],
+    funnel: [
+      { conversionRate: 100, durationDays: 0, dropoutRate: 0 },
+      { conversionRate: 100, durationDays: 0, dropoutRate: 0 },
+    ],
+    maxConcurrent: 999, targetN: 50,
+  };
+  const r = simulateSingleSite(config, 10);
+  assert(r.fpi === 5, `expected FPI 5, got ${r.fpi}`);
+  const startupWks = r.timeline.filter(t => t.phase === 'startup');
+  const enrollWks = r.timeline.filter(t => t.phase === 'enrollment');
+  assert(startupWks.length === 4, `4 startup weeks expected, got ${startupWks.length}`);
+  assert(enrollWks.length >= 1, 'should have enrollment weeks after FPI');
+});
+
+test('coordinator capacity limits concurrent patients', () => {
+  const config = {
+    startup: { regulatory: [{ startWeek: 1, durationWeeks: 0 }], legal: [], operational: [] },
+    referrals: [{ id: 'r', volumePerWeek: 100, costPerPatient: 100 }],
+    funnel: [{ conversionRate: 100, durationDays: 0, dropoutRate: 0 }, { conversionRate: 100, durationDays: 0, dropoutRate: 0 }],
+    coordinatorFTEs: 1, // 8 max concurrent
+    treatmentDuration: 50, // long — fills up quickly
+    targetN: 1000,
+  };
+  const r = simulateSingleSite(config, 20);
+  // Can't exceed 8 active at once → cumulative enrolled <= 8 until first treatments end
+  assert(r.totalEnrolled <= 10, `coordinator cap should hold enrollment <= ~10, got ${r.totalEnrolled}`);
+});
+
+// ═══ RNG / PRNG ═══
+group('Deterministic RNG');
+
+test('mulberry32 same seed = same sequence', () => {
+  const r1 = mulberry32(42);
+  const r2 = mulberry32(42);
+  for (let i = 0; i < 10; i++) assert(r1() === r2(), `draw ${i} mismatch`);
+});
+
+test('mulberry32 different seed = different sequence', () => {
+  const r1 = mulberry32(42), r2 = mulberry32(43);
+  let diff = 0;
+  for (let i = 0; i < 10; i++) if (r1() !== r2()) diff++;
+  assert(diff >= 8, `expected most draws to differ, got ${diff}/10`);
+});
+
+test('mulberry32 outputs are in [0, 1)', () => {
+  const r = mulberry32(12345);
+  for (let i = 0; i < 1000; i++) {
+    const v = r();
+    assert(v >= 0 && v < 1, `out of range: ${v}`);
+  }
+});
+
+test('hashSeed stable for same object', () => {
+  const obj = { a: 1, b: [2, 3], c: 'str' };
+  assert(hashSeed(obj) === hashSeed(obj), 'same hash for same object');
+});
+
+test('hashSeed differs for different objects', () => {
+  assert(hashSeed({ a: 1 }) !== hashSeed({ a: 2 }), 'different hash for different objects');
+});
+
+test('poisson(lambda=0) returns 0', () => {
+  const r = mulberry32(1);
+  assert(poisson(r, 0) === 0, 'zero lambda => zero');
+});
+
+test('poisson sample mean approximates lambda (law of large numbers)', () => {
+  const r = mulberry32(7);
+  const lambda = 10;
+  const N = 2000;
+  let sum = 0;
+  for (let i = 0; i < N; i++) sum += poisson(r, lambda);
+  const mean = sum / N;
+  assertClose(mean, lambda, 0.6, `Poisson mean ~= lambda`);
+});
+
+test('randn sample mean ~ 0 and variance ~ 1', () => {
+  const r = mulberry32(99);
+  const N = 5000;
+  let sum = 0, sumSq = 0;
+  for (let i = 0; i < N; i++) { const z = randn(r); sum += z; sumSq += z * z; }
+  const mean = sum / N;
+  const variance = sumSq / N - mean * mean;
+  assertClose(mean, 0, 0.1, 'mean ~ 0');
+  assertClose(variance, 1, 0.15, 'variance ~ 1');
+});
+
+// ─── Render ───
+const container = document.getElementById('results');
+const summary = document.getElementById('summary');
+let passed = 0, failed = 0;
+let currentGroupEl = null;
+for (const r of results) {
+  if (r.type === 'group') {
+    const h = document.createElement('h2');
+    h.textContent = r.name;
+    container.appendChild(h);
+    continue;
+  }
+  const d = document.createElement('div');
+  d.className = 'test ' + r.status;
+  if (r.status === 'ok') { d.textContent = '✓ ' + r.name; passed++; }
+  else { d.textContent = '✗ ' + r.name + ' — ' + r.error; failed++; }
+  container.appendChild(d);
+}
+summary.className = 'summary ' + (failed === 0 ? 'ok' : 'fail');
+summary.textContent = `${passed} passed, ${failed} failed`;
+</script>
+</body>
+</html>

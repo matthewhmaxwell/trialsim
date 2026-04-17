@@ -60,10 +60,24 @@ No login. No install. No backend. Just open `index.html` in a browser.
 - Milestone callouts at 25%, 50%, 75%, and 100% enrollment
 - Animated stat counters with easeOutCubic easing
 
-### Data Management
-- JSON export/import for full configuration persistence (all three views)
+### Uncertainty & Calibration
+- **Monte Carlo fan on by default** — 200 seeded iterations, P10 / P50 / P90 bands on every view
+- Seeded PRNG (mulberry32) — same config produces the same fan, no jitter on re-render
+- Per-site **ramp-up + Poisson noise** in Multi-Site view
+- **Calibrate from actuals** — paste real enrollment data (aggregate, per-site, or per-source) and rescale the forecast
+- **Inline citations** — every default number (TA multipliers, screen-fail rates, coordinator capacity) is sourced (Tufts CSDD, CTTI, IQVIA, etc.)
+
+### Scenarios & Reporting
+- **Scenario library** persisted in localStorage — save, rename, load, duplicate
+- **One-click PDF report** — branded cover page, stats, chart, tables, and a full assumptions appendix
+- **Undo / redo** — Cmd-Z undoes template switches, TA applies, calibrations, loads
+- JSON export/import for full configuration
 - CSV import for site lists
-- Confirmation dialogs to prevent accidental data loss on template switch
+- Shareable URL (config encoded in hash)
+
+### Data Management
+- Confirmation dialogs on destructive actions (with undo reminder)
+- Mobile gate — redirects narrow-screen visitors rather than pretending the desktop layout works
 
 ## Quick Start
 
@@ -84,6 +98,13 @@ python3 -m http.server 8080
 ```
 
 That's it. No `npm install`, no build tools, no dependencies to manage.
+
+### Running the test suite
+```bash
+python3 -m http.server 8080
+# Then visit http://localhost:8080/tests.html
+```
+Runs 25 pure-function tests against the simulation engines in the browser.
 
 ## How It Works
 
@@ -125,6 +146,32 @@ For Multi-Site View, import a CSV with these columns (flexible matching - partia
 | **FPI** | First Patient In - week when a site enrolls its first patient |
 | **Activation Week** | Week a site comes online and starts enrolling |
 | **Max Concurrent** | Max patients a site can manage simultaneously |
+
+## Where Trialsim fits
+
+Feasibility teams have three options when modeling enrollment:
+
+| Tool | Strengths | Tradeoffs |
+|------|-----------|-----------|
+| **Spreadsheets (Excel)** | Everyone has them. Free. Full control. | No uncertainty modeling. No per-site portfolio view. Copy-paste bugs. Not interactive. |
+| **Trialsim** (this tool) | Zero setup. Three linked views (study → portfolio → site). Monte Carlo on by default. Sourced assumptions. Branded PDF reports. Per-site calibration from actuals. Open source. | Browser-only. No auth / multi-user. Client-side compute only. Not a statistical analysis plan tool. |
+| **Enterprise platforms** (Cytel East, IQVIA CTMS, Medidata AcornAI) | Rigorous statistics, validated defaults, enterprise integrations, support contracts. | Long procurement cycles. Six-figure licenses. Over-engineered for early-phase feasibility and first-cut planning. |
+
+**Honest positioning:** Trialsim is for **first-cut feasibility planning** — the stage where you are asking "roughly, with this mix, when do we finish?" and need something better than a spreadsheet but lighter than Cytel.
+
+For signed-off, regulator-facing enrollment forecasts, keep using your enterprise platform and biostatistics team. Trialsim is a sketching tool, not a replacement.
+
+**What Trialsim will not do** (by design):
+- Stratification, blinding, or randomization simulation
+- Any statistical analysis beyond Poisson/lognormal uncertainty
+- SDTM / ADaM / CDISC integration
+- Regulatory submission artifacts
+
+**What Trialsim will do that the alternatives do not:**
+- Move from study-level → portfolio-level → site-level planning in the same tool, with bidirectional sync
+- Show uncertainty (P10/P50/P90) by default, not as an afterthought
+- Surface the source of every default number inline
+- Run entirely in a browser with no login
 
 ## Sister Projects
 
