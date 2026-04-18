@@ -561,6 +561,57 @@ const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip: RTooltip, Respons
 // SHARED COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════
 
+// ─── useModalFocusTrap: autofocus + cycle Tab within a container ─────
+// When `isOpen` is true:
+//   1. Remember the element that had focus just before the modal opened.
+//   2. Move focus to the first focusable inside the container on next tick.
+//   3. Intercept Tab / Shift-Tab so focus wraps inside the container
+//      (doesn't leak to the page behind).
+// When `isOpen` goes false: restore focus to the prior element.
+// Esc is already handled globally in App — this hook only covers focus.
+const FOCUSABLE_SELECTOR = [
+  'a[href]', 'button:not([disabled])', 'input:not([disabled])',
+  'select:not([disabled])', 'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+function useModalFocusTrap(containerRef, isOpen) {
+  const priorFocusRef = useRef(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    priorFocusRef.current = document.activeElement;
+    // Focus first focusable after React commits the DOM.
+    const t = setTimeout(() => {
+      const root = containerRef.current;
+      if (!root) return;
+      const items = root.querySelectorAll(FOCUSABLE_SELECTOR);
+      const first = items[0];
+      if (first && first !== document.activeElement) first.focus();
+    }, 0);
+    const onKey = (e) => {
+      if (e.key !== 'Tab') return;
+      const root = containerRef.current;
+      if (!root) return;
+      const items = Array.from(root.querySelectorAll(FOCUSABLE_SELECTOR))
+        .filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('keydown', onKey, true);
+      // Restore focus to the element that opened the modal.
+      const prior = priorFocusRef.current;
+      if (prior && typeof prior.focus === 'function' && document.body.contains(prior)) prior.focus();
+    };
+  }, [isOpen, containerRef]);
+}
+
 // ─── AIMR Standard Header & Footer ───────────────────────────────────
 function AIMRHeader() {
   return (
@@ -798,10 +849,12 @@ function ConfigWrapper({ onClose, children }) {
 }
 
 function ConfigPanel({ node, nodeType, onChange, onDelete, onClose, onRename }) {
+  const containerRef = useRef(null);
+  useModalFocusTrap(containerRef, !!node);
   if (!node) return null;
   const isSource = nodeType === 'source', isTerminal = !isSource && node.id === 'terminal';
   return (
-    <div className="config-overlay">
+    <div className="config-overlay" ref={containerRef} role="dialog" aria-modal="true" aria-label={`Configure ${isSource ? 'source' : 'stage'} ${node.name}`}>
       <div className="config-header">
         <h3>Configure {isSource ? 'Source' : 'Stage'}</h3>
         <button className="config-close" onClick={onClose} aria-label="Close">&times;</button>
@@ -904,8 +957,27 @@ function SiteTable({ sites, onChange, onAdd, onDelete, onDrillIn }) {
           {sorted.map(s => (
             <tr key={s.id} style={{ opacity: s.active ? 1 : 0.4 }}>
               <td className="name-cell" style={{ position: 'relative' }}>
-                {s.calibrated && <span title={`Calibrated: observed ${s.calibrated.observedRate}/wk (${s.calibrated.mult}× original modeled rate)`} style={{ position: 'absolute', left: 2, top: '50%', transform: 'translateY(-50%)', width: 5, height: 5, borderRadius: '50%', background: 'var(--green)' }} />}
-                <input type="text" value={s.name} onChange={e => updateSite(s.id, 'name', e.target.value)} style={{ paddingLeft: s.calibrated ? 12 : undefined }} />
+                {s.calibrated && (
+                  <span
+                    aria-label={`Calibrated from actuals: observed ${s.calibrated.observedRate}/wk, rescaled ${s.calibrated.mult}× vs baseline`}
+                    title={`Calibrated: observed ${s.calibrated.observedRate}/wk (${s.calibrated.mult}× baseline)`}
+                    style={{
+                      position: 'absolute', left: 2, top: '50%', transform: 'translateY(-50%)',
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                      fontSize: 9, fontWeight: 700, color: 'var(--green)',
+                      background: 'rgba(45,122,80,0.1)', border: '1px solid rgba(45,122,80,0.35)',
+                      borderRadius: 3, padding: '1px 4px', lineHeight: 1, whiteSpace: 'nowrap',
+                      fontFamily: 'Menlo, monospace',
+                    }}
+                  >
+                    <span aria-hidden="true">{'\u2713'}</span>cal
+                  </span>
+                )}
+                <input
+                  type="text" value={s.name}
+                  onChange={e => updateSite(s.id, 'name', e.target.value)}
+                  style={{ paddingLeft: s.calibrated ? 42 : undefined, fontWeight: s.calibrated ? 600 : undefined }}
+                />
               </td>
               <td className="num-cell"><input type="number" step="0.1" min="0" value={s.enrollmentRate} onChange={e => updateSite(s.id, 'enrollmentRate', +e.target.value || 0)} /></td>
               <td className="num-cell"><input type="number" min="1" value={s.activationWeek} onChange={e => updateSite(s.id, 'activationWeek', Math.max(1, +e.target.value || 1))} /></td>
@@ -1052,6 +1124,12 @@ function App() {
   // ── Shared ──
   const [toast, setToast] = useState(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  // Focus-trap refs for the two overlay panels + the Single Site drawer.
+  // (ConfigPanel has its own ref inside the component.)
+  // Hooks themselves are declared further down, after their state is defined.
+  const snapshotsRef = useRef(null);
+  const actualsRef = useRef(null);
+  const ssDrawerRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [animFrame, setAnimFrame] = useState(null);
   const animRef = useRef(null);
@@ -1125,6 +1203,10 @@ function App() {
   const [showActualsPanel, setShowActualsPanel] = useState(false);
   const [actualsInput, setActualsInput] = useState('');
   const [actualsData, setActualsData] = useState(null); // { values: [n per week], fitMultiplier }
+  // Now that the relevant open-state flags exist, wire up the focus traps.
+  useModalFocusTrap(snapshotsRef, showSnapshotsPanel);
+  useModalFocusTrap(actualsRef, showActualsPanel);
+  useModalFocusTrap(ssDrawerRef, !!ssSel);
   // Gate each Monte Carlo on (a) the active tab and (b) the fan being visible.
   // MC is ~50ms per view × 3 views = ~150ms of CPU on every config change.
   // Previously that ran unconditionally on every edit; now we only pay for
@@ -2780,7 +2862,7 @@ function App() {
           if (!stage || stage.conversionRate >= 100) return null;
           return (
             <ConfigWrapper onClose={() => setSsSel(null)}>
-            <div className="config-overlay">
+            <div className="config-overlay" ref={ssDrawerRef} role="dialog" aria-modal="true" aria-label={`Configure stage ${stage.name}`}>
               <div className="config-header"><h3>Configure Stage</h3><button className="config-close" onClick={() => setSsSel(null)} aria-label="Close">&times;</button></div>
               <div className="config-body">
                 <div className="cfg-group"><label>Name</label><input type="text" value={stage.name} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, name: e.target.value } : f))} /></div>
@@ -2798,7 +2880,7 @@ function App() {
           if (!ref) return null;
           return (
             <ConfigWrapper onClose={() => setSsSel(null)}>
-            <div className="config-overlay">
+            <div className="config-overlay" ref={ssDrawerRef} role="dialog" aria-modal="true" aria-label={`Configure referral source ${ref.name}`}>
               <div className="config-header"><h3>Configure Source</h3><button className="config-close" onClick={() => setSsSel(null)} aria-label="Close">&times;</button></div>
               <div className="config-body">
                 <div className="cfg-group"><label>Name</label><input type="text" value={ref.name} onChange={e => setSsReferrals(p => p.map(r => r.id === ref.id ? { ...r, name: e.target.value } : r))} /></div>
@@ -2813,8 +2895,8 @@ function App() {
         return null;
       })()}
       {showSnapshotsPanel && (
-        <div className="snapshots-overlay" onClick={e => { if (e.target === e.currentTarget) setShowSnapshotsPanel(false); }}>
-          <div className="snapshots-panel">
+        <div className="snapshots-overlay" onClick={e => { if (e.target === e.currentTarget) setShowSnapshotsPanel(false); }} role="dialog" aria-modal="true" aria-label="Scenario library">
+          <div className="snapshots-panel" ref={snapshotsRef}>
             <div className="snapshots-header">
               <h3>Scenario Library <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text3)', marginLeft: 8 }}>Persisted in this browser</span></h3>
               <button className="config-close" onClick={() => setShowSnapshotsPanel(false)} aria-label="Close scenario library">&times;</button>
@@ -2872,8 +2954,8 @@ function App() {
         </div>
       )}
       {showActualsPanel && (
-        <div className="snapshots-overlay" onClick={e => { if (e.target === e.currentTarget) setShowActualsPanel(false); }}>
-          <div className="snapshots-panel" style={{ maxWidth: 620 }}>
+        <div className="snapshots-overlay" onClick={e => { if (e.target === e.currentTarget) setShowActualsPanel(false); }} role="dialog" aria-modal="true" aria-label="Calibrate from actuals">
+          <div className="snapshots-panel" style={{ maxWidth: 620 }} ref={actualsRef}>
             <div className="snapshots-header">
               <h3>Calibrate from Actuals</h3>
               <button className="config-close" onClick={() => setShowActualsPanel(false)} aria-label="Close calibration panel">&times;</button>
