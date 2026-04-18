@@ -1125,30 +1125,58 @@ function App() {
   const [showActualsPanel, setShowActualsPanel] = useState(false);
   const [actualsInput, setActualsInput] = useState('');
   const [actualsData, setActualsData] = useState(null); // { values: [n per week], fitMultiplier }
-  const monteCarloResult = useMemo(() => montecarlo(sources, stages, targetN, 200, 0.25, 104), [sources, stages, targetN]);
+  // Gate each Monte Carlo on (a) the active tab and (b) the fan being visible.
+  // MC is ~50ms per view × 3 views = ~150ms of CPU on every config change.
+  // Previously that ran unconditionally on every edit; now we only pay for
+  // the chart the user is actually looking at, when uncertainty is shown.
+  const monteCarloResult = useMemo(
+    () => (activeTab === 'study' && showMonteCarlo) ? montecarlo(sources, stages, targetN, 200, 0.25, 104) : null,
+    [activeTab, showMonteCarlo, sources, stages, targetN]
+  );
   const diagnostics = useMemo(() => diagnose({ sources, stages, targetN, result }), [sources, stages, targetN, result]);
 
   // ── Site Simulation ──
   const siteResult = useMemo(() => simulateSites(sites, siteTargetN, 104), [sites, siteTargetN]);
-  const siteMC = useMemo(() => montecarloSites(sites, siteTargetN, 200, 0.25, 104), [sites, siteTargetN]);
+  const siteMC = useMemo(
+    () => (activeTab === 'site' && showMonteCarlo) ? montecarloSites(sites, siteTargetN, 200, 0.25, 104) : null,
+    [activeTab, showMonteCarlo, sites, siteTargetN]
+  );
 
   // ── Single-Site Simulation ──
   const ssConfig = useMemo(() => ({ startup: ssStartup, referrals: ssReferrals, funnel: ssFunnel, maxConcurrent: ssMaxConcurrent, coordinatorFTEs: ssIdentity.coordinatorCount, treatmentDuration: ssTreatmentDuration, targetN: ssTargetN }), [ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssIdentity.coordinatorCount, ssTreatmentDuration, ssTargetN]);
   const ssResult = useMemo(() => simulateSingleSite(ssConfig, 104), [ssConfig]);
-  const ssMC = useMemo(() => montecarloSingleSite(ssConfig, 200, 0.25, 104), [ssConfig]);
+  const ssMC = useMemo(
+    () => (activeTab === 'single' && showMonteCarlo) ? montecarloSingleSite(ssConfig, 200, 0.25, 104) : null,
+    [activeTab, showMonteCarlo, ssConfig]
+  );
   const ssFPI = useMemo(() => computeFPI(ssStartup), [ssStartup]);
 
-  // Bidirectional sync: push changes back to multi-site table
+  // Bidirectional sync: push Single Site edits back to the linked Multi-Site row.
+  // This silently overwrites the row's rate / activation / screen-fail / dropout
+  // / cost — including any manual edits the user made in the table. We:
+  //   1. Show a persistent "Syncing to <name>" pill with an Unlink button in the
+  //      Single Site toolbar so the sync is visible.
+  //   2. Fire a subtle toast the first time the effect runs per link, so the
+  //      user knows their edits propagated and can unlink if they didn't want that.
+  const syncToastShown = useRef(null); // tracks the ssLinkedSiteId we've already toasted for
   useEffect(() => {
-    if (!ssLinkedSiteId) return;
+    if (!ssLinkedSiteId) { syncToastShown.current = null; return; }
     const avgDropout = ssFunnel.filter(f => f.conversionRate < 100).reduce((a, f) => a + (f.dropoutRate || 0), 0) / (ssFunnel.filter(f => f.conversionRate < 100).length || 1);
     const totalRefVol = ssReferrals.reduce((a, r) => a + r.volumePerWeek, 0);
     const weightedCost = totalRefVol > 0 ? Math.round(ssReferrals.reduce((a, r) => a + r.volumePerWeek * (r.costPerPatient || 0), 0) / totalRefVol) : 0;
-    setSites(prev => prev.map(s => s.id === ssLinkedSiteId ? {
-      ...s, name: ssIdentity.name, enrollmentRate: +ssResult.effectiveRate,
-      activationWeek: ssFPI, screenFailRate: ssResult.screenFailRate,
-      dropoutRate: Math.round(avgDropout), costPerPatient: weightedCost,
-    } : s));
+    let syncedName = null;
+    setSites(prev => prev.map(s => {
+      if (s.id !== ssLinkedSiteId) return s;
+      syncedName = s.name;
+      return { ...s, name: ssIdentity.name, enrollmentRate: +ssResult.effectiveRate,
+        activationWeek: ssFPI, screenFailRate: ssResult.screenFailRate,
+        dropoutRate: Math.round(avgDropout), costPerPatient: weightedCost };
+    }));
+    // Toast only once per link session so we don't spam during continuous editing.
+    if (syncToastShown.current !== ssLinkedSiteId && syncedName) {
+      syncToastShown.current = ssLinkedSiteId;
+      showToast(`Syncing edits to "${syncedName}" in Multi-Site table`);
+    }
   }, [ssResult.effectiveRate, ssFPI, ssResult.screenFailRate, ssIdentity.name, ssLinkedSiteId, ssFunnel, ssReferrals]);
 
   // ── Current result for animation ──
@@ -1332,16 +1360,37 @@ function App() {
       if (Array.isArray(s.sites)) setSites(s.sites);
       if (s.siteScenario) setSiteScenario(s.siteScenario);
       if (typeof s.siteTargetN === 'number' && s.siteTargetN > 0) setSiteTargetN(s.siteTargetN);
-      if (s.ssTemplate) setSsTemplate(s.ssTemplate);
-      if (s.ssIdentity && s.ssIdentity.name) setSsIdentity(s.ssIdentity);
-      if (s.ssStartup && s.ssStartup.regulatory) setSsStartup(s.ssStartup);
-      if (Array.isArray(s.ssReferrals)) setSsReferrals(s.ssReferrals);
-      if (Array.isArray(s.ssFunnel) && s.ssFunnel.length) setSsFunnel(s.ssFunnel);
-      if (typeof s.ssMaxConcurrent === 'number') setSsMaxConcurrent(s.ssMaxConcurrent);
-      if (typeof s.ssTreatmentDuration === 'number') setSsTreatmentDuration(s.ssTreatmentDuration);
-      if (typeof s.ssTargetN === 'number' && s.ssTargetN > 0) setSsTargetN(s.ssTargetN);
+      // Single Site state goes through one atomic dispatch — avoids the brief
+      // inconsistent-render window we'd otherwise get from 9 sequential setters,
+      // which was visible as a flash of the old funnel against the new startup.
+      const ssPatch = {};
+      if (s.ssTemplate) ssPatch.ssTemplate = s.ssTemplate;
+      if (s.ssIdentity && s.ssIdentity.name) ssPatch.ssIdentity = s.ssIdentity;
+      if (s.ssStartup && s.ssStartup.regulatory) ssPatch.ssStartup = s.ssStartup;
+      if (Array.isArray(s.ssReferrals)) ssPatch.ssReferrals = s.ssReferrals;
+      if (Array.isArray(s.ssFunnel) && s.ssFunnel.length) ssPatch.ssFunnel = s.ssFunnel;
+      if (typeof s.ssMaxConcurrent === 'number') ssPatch.ssMaxConcurrent = s.ssMaxConcurrent;
+      if (typeof s.ssTreatmentDuration === 'number') ssPatch.ssTreatmentDuration = s.ssTreatmentDuration;
+      if (typeof s.ssTargetN === 'number' && s.ssTargetN > 0) ssPatch.ssTargetN = s.ssTargetN;
+      if (Object.keys(ssPatch).length) ssDispatch({ type: 'MERGE', patch: ssPatch });
       return true;
     } catch { return false; }
+  };
+  // UTF-8 safe base64url encode/decode for share links.
+  // Plain btoa fails on non-ASCII chars (em-dashes, accents in site names).
+  // base64url (+ → -, / → _, no padding) avoids URL-encoding noise in the hash.
+  const b64urlEncode = (s) => {
+    const bytes = new TextEncoder().encode(s);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  };
+  const b64urlDecode = (s) => {
+    const pad = s.length % 4 === 2 ? '==' : s.length % 4 === 3 ? '=' : '';
+    const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + pad);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
   };
   // Hydrate once on mount: URL hash > localStorage
   useEffect(() => {
@@ -1349,7 +1398,11 @@ function App() {
     hydrated.current = true;
     if (window.location.hash && window.location.hash.length > 1) {
       try {
-        const decoded = atob(decodeURIComponent(window.location.hash.slice(1)));
+        const raw = window.location.hash.slice(1);
+        // v1: prefix marks the base64url format. Legacy hashes (no prefix)
+        // fall back to the old URI-encoded btoa decoder.
+        const decoded = raw.startsWith('v1:') ? b64urlDecode(raw.slice(3))
+                      : atob(decodeURIComponent(raw));
         const s = JSON.parse(decoded);
         if (applyState(s)) {
           hydratedFromSave.current = true;
@@ -1376,10 +1429,12 @@ function App() {
   }, [activeTab, template, sources, stages, targetN, sites, siteScenario, siteTargetN, ssTemplate, ssIdentity, ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssTreatmentDuration, ssTargetN]);
   const shareURL = () => {
     try {
-      const encoded = btoa(JSON.stringify(serializeState()));
-      const url = `${window.location.origin}${window.location.pathname}#${encoded}`;
+      const encoded = b64urlEncode(JSON.stringify(serializeState()));
+      const url = `${window.location.origin}${window.location.pathname}#v1:${encoded}`;
       navigator.clipboard.writeText(url);
-      showToast('Share link copied to clipboard');
+      // Heads-up on long URLs (some chat clients truncate > 2000 chars).
+      if (url.length > 2000) showToast(`Long link (${url.length} chars) — long URLs may be truncated when pasted in some clients. Consider Export → JSON instead.`);
+      else showToast('Share link copied to clipboard');
     } catch { showToast('Could not create share link'); }
   };
   const resetAll = () => {
@@ -1413,7 +1468,11 @@ function App() {
   const exportReport = () => {
     const activeChartSvg = document.querySelector('.result-card .recharts-wrapper svg')?.outerHTML || '';
     const r = activeTab === 'study' ? result : activeTab === 'site' ? siteResult : ssResult;
-    const mc = activeTab === 'study' ? monteCarloResult : activeTab === 'site' ? siteMC : ssMC;
+    // Report always includes MC stats even if the fan toggle is off in the UI —
+    // reports are generated on demand so we can afford the ~50ms recomputation.
+    const mc = activeTab === 'study' ? (monteCarloResult || montecarlo(sources, stages, targetN, 200, 0.25, 104))
+             : activeTab === 'site' ? (siteMC || montecarloSites(sites, siteTargetN, 200, 0.25, 104))
+             : (ssMC || montecarloSingleSite(ssConfig, 200, 0.25, 104));
     const tgt = activeTab === 'study' ? targetN : activeTab === 'site' ? siteTargetN : ssTargetN;
     const viewName = activeTab === 'study' ? 'Study View' : activeTab === 'site' ? 'Multi-Site View' : 'Single Site View';
     const subtitleParts = [];
@@ -2033,7 +2092,16 @@ function App() {
             </select>
             <Cited id={`startup.${ssTemplate}`} />
             <div className="field"><label>Site Target</label><input type="number" value={ssTargetN} onChange={e => setSsTargetN(Math.max(1, +e.target.value || 1))} /></div>
-            {ssLinkedSiteId && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 500 }}>Linked to multi-site table</span>}
+            {ssLinkedSiteId && (() => {
+              const linked = sites.find(s => s.id === ssLinkedSiteId);
+              return (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--accent)', fontWeight: 500, background: 'var(--accent-bg)', padding: '3px 8px', borderRadius: 10, border: '1px solid rgba(176,78,48,0.25)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />
+                  Syncing to {linked ? `"${linked.name}"` : 'Multi-Site'}
+                  <button onClick={() => { pushHistory('Unlink from Multi-Site'); setSsLinkedSiteId(null); showToast('Unlinked — edits no longer sync'); }} title="Stop syncing edits to the Multi-Site table. Existing row is not reverted." style={{ marginLeft: 4, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: '0 2px', fontFamily: 'inherit' }}>{'\u00D7'}</button>
+                </span>
+              );
+            })()}
           </>}
         </div>
         <div className="topbar-right">
