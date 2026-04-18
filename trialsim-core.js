@@ -187,19 +187,55 @@ const TA_PRESETS = {
   },
 };
 
-// Apply a TA preset to the current sources and stages
+// Apply a TA preset to the current sources and stages.
+//
+// Each source/stage stashes its pre-TA values (baseVolume, baseCost,
+// baseConversion, baseDropout) on first apply. Switching TAs recomputes
+// from those stashed values instead of stacking on the previous TA —
+// e.g. Oncology→Vaccines now yields baseline×2.2 (correct) rather than
+// baseline×0.7×2.2 (wrong). Clearing the preset (taKey='none') restores
+// the stashed baseline and drops the stash fields.
 function applyTAPreset(taKey, sources, stages) {
   const ta = TA_PRESETS[taKey];
-  if (!ta || taKey === 'none') return { sources, stages };
-  const newSources = sources.map(s => ({
+
+  // Step 1: reset each item to its pre-TA baseline (if one was stashed).
+  const baseSources = sources.map(s => {
+    if (s.baseVolume == null && s.baseCost == null) return s;
+    const { baseVolume, baseCost, ...rest } = s;
+    return {
+      ...rest,
+      volume: baseVolume != null ? baseVolume : rest.volume,
+      costPerPatient: baseCost != null ? baseCost : rest.costPerPatient,
+    };
+  });
+  const baseStages = stages.map(s => {
+    if (s.id === 'terminal') return s;
+    if (s.baseConversion == null && s.baseDropout == null) return s;
+    const { baseConversion, baseDropout, ...rest } = s;
+    return {
+      ...rest,
+      conversionRate: baseConversion != null ? baseConversion : rest.conversionRate,
+      dropoutRate: baseDropout != null ? baseDropout : rest.dropoutRate,
+    };
+  });
+
+  // Step 2: if clearing, return the reset baseline.
+  if (!ta || taKey === 'none') return { sources: baseSources, stages: baseStages };
+
+  // Step 3: apply TA multipliers to the baseline and stash the pre-TA values.
+  const newSources = baseSources.map(s => ({
     ...s,
+    baseVolume: s.volume,
+    baseCost: s.costPerPatient,
     volume: Math.max(1, Math.round(s.volume * (ta.sourceVolumeMult || 1))),
     costPerPatient: Math.round((s.costPerPatient || 0) * (ta.costMult || 1)),
   }));
-  const newStages = stages.map(s => {
+  const newStages = baseStages.map(s => {
     if (s.id === 'terminal') return s;
     return {
       ...s,
+      baseConversion: s.conversionRate,
+      baseDropout: s.dropoutRate,
       conversionRate: Math.min(100, Math.max(5, Math.round(s.conversionRate * (ta.conversionMult || 1) - (ta.screenFailBoost || 0) * 0.25))),
       dropoutRate: Math.min(30, Math.max(0, Math.round((s.dropoutRate || 0) * (ta.dropoutMult || 1)))),
     };

@@ -575,15 +575,23 @@ const FOCUSABLE_SELECTOR = [
   'select:not([disabled])', 'textarea:not([disabled])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
-function useModalFocusTrap(containerRef, isOpen) {
+function useModalFocusTrap(containerRef, isOpen, preferredFocusSelector) {
   const priorFocusRef = useRef(null);
   useEffect(() => {
     if (!isOpen) return;
     priorFocusRef.current = document.activeElement;
-    // Focus first focusable after React commits the DOM.
+    // Focus the "preferred" element if given (e.g. the Name input for a config
+    // drawer, or the textarea for the calibrate panel) — otherwise fall back to
+    // the first focusable, which is almost always the × Close button.
     const t = setTimeout(() => {
       const root = containerRef.current;
       if (!root) return;
+      const preferred = preferredFocusSelector ? root.querySelector(preferredFocusSelector) : null;
+      if (preferred && typeof preferred.focus === 'function') {
+        preferred.focus();
+        if (preferred.select) preferred.select();
+        return;
+      }
       const items = root.querySelectorAll(FOCUSABLE_SELECTOR);
       const first = items[0];
       if (first && first !== document.activeElement) first.focus();
@@ -865,7 +873,8 @@ function ConfigWrapper({ onClose, children }) {
 
 function ConfigPanel({ node, nodeType, onChange, onDelete, onClose, onRename }) {
   const containerRef = useRef(null);
-  useModalFocusTrap(containerRef, !!node);
+  // Focus lands on the Name input (first editable field) — not the × close.
+  useModalFocusTrap(containerRef, !!node, 'input[type="text"]');
   if (!node) return null;
   const isSource = nodeType === 'source', isTerminal = !isSource && node.id === 'terminal';
   return (
@@ -1219,9 +1228,13 @@ function App() {
   const [actualsInput, setActualsInput] = useState('');
   const [actualsData, setActualsData] = useState(null); // { values: [n per week], fitMultiplier }
   // Now that the relevant open-state flags exist, wire up the focus traps.
-  useModalFocusTrap(snapshotsRef, showSnapshotsPanel);
-  useModalFocusTrap(actualsRef, showActualsPanel);
-  useModalFocusTrap(ssDrawerRef, !!ssSel);
+  // Library opens focused on the primary action (Save New or first row name
+  // input if scenarios exist), otherwise the × close. Actuals opens focused on
+  // the textarea so the user can paste immediately. Single-Site drawer focuses
+  // the Name field.
+  useModalFocusTrap(snapshotsRef, showSnapshotsPanel, 'input[type="text"]');
+  useModalFocusTrap(actualsRef, showActualsPanel, 'textarea');
+  useModalFocusTrap(ssDrawerRef, !!ssSel, 'input[type="text"]');
   // Gate each Monte Carlo on (a) the active tab and (b) the fan being visible.
   // MC is ~50ms per view × 3 views = ~150ms of CPU on every config change.
   // Previously that ran unconditionally on every edit; now we only pay for
@@ -2209,11 +2222,12 @@ function App() {
               const nk = e.target.value;
               if (nk !== 'none' && !confirm(`Apply ${TA_PRESETS[nk].name} adjustments to current sources and funnel stages? (Ctrl/Cmd-Z to undo.)`)) return;
               pushHistory(nk === 'none' ? 'Clear TA' : `TA: ${TA_PRESETS[nk].name}`);
-              if (nk !== 'none') {
-                const applied = applyTAPreset(nk, sources, stages);
-                setSources(applied.sources); setStages(applied.stages);
-                showToast(`Applied ${TA_PRESETS[nk].name} preset`);
-              }
+              // Always dispatch — switching TAs (including → 'none') resets prior TA multipliers
+              // from the stashed baseline so switching Oncology → Vaccines doesn't compound.
+              const applied = applyTAPreset(nk, sources, stages);
+              setSources(applied.sources); setStages(applied.stages);
+              if (nk !== 'none') showToast(`Applied ${TA_PRESETS[nk].name} preset`);
+              else if (taPreset !== 'none') showToast('Cleared TA preset — restored baseline rates');
               setTaPreset(nk);
             }}>
               {Object.entries(TA_PRESETS).map(([k, v]) => <option key={k} value={k}>TA: {v.name}</option>)}
