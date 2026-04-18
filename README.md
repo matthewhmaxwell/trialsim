@@ -1,10 +1,12 @@
-# Trialsim
+# Trialsim (Beta)
 
 **Interactive clinical trial enrollment simulator**
 
 Model how different recruitment strategies, site configurations, and protocol designs affect your enrollment timeline. Built by the [American Institute for Medical Research](https://aimronline.org).
 
 **[Launch Trialsim](https://trialsim.aimronline.org)**
+
+> **License.** This project is source-available under PolyForm Noncommercial 1.0.0. Data is licensed CC BY-NC 4.0. You're free to study, fork, and use non-commercially. Commercial rights reserved by the American Institute for Medical Research, LLC.
 
 ---
 
@@ -175,13 +177,26 @@ For signed-off, regulator-facing enrollment forecasts, keep using your enterpris
 
 ## Sister Projects
 
-- **[Trialibre](https://trialibre.aimronline.org)** - Open-source clinical trial matching
-- **[Trialearn](https://trialearn.aimronline.org)** - Clinical research training
+- **[Trialibre](https://trialibre.aimronline.org)** — Source-available clinical trial matching
+- **[Trialearn](https://trialearn.aimronline.org)** — Clinical research training
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+Trialsim is **source-available**, not open source. The code and data use different licenses:
+
+| What | License | File |
+|------|---------|------|
+| Source code | PolyForm Noncommercial 1.0.0 | [LICENSE](LICENSE) |
+| Benchmark data, assumption tables, report content | CC BY-NC 4.0 | [LICENSE-DATA](LICENSE-DATA) |
+
+You're free to read, study, fork, and use Trialsim non-commercially — for research, feasibility planning, education, or internal evaluation at a non-profit, university, or government agency. Commercial rights are reserved by the American Institute for Medical Research, LLC. For commercial licensing, contact [inquiries@aimronline.org](mailto:inquiries@aimronline.org).
+
+We use "source-available" (not "open source") because the OSI does not certify licenses with non-commercial restrictions, and we want to be accurate about what's permitted.
+
+## Feedback
+
+Every Trialsim page includes a purple floating feedback button in the bottom-right corner. Use it to report bugs, suggest features, flag incorrect benchmarks, or ask about commercial use. Submissions route to `inquiries@aimronline.org`.
 
 ## About
 
-Developed by the [American Institute for Medical Research](https://aimronline.org) (AIMR), a non-profit organization dedicated to making clinical research tools accessible.
+Developed by the [American Institute for Medical Research](https://aimronline.org) (AIMR), a non-profit building free, source-available tools for the clinical research community.

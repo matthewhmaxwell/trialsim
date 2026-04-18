@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trialsim — AIMR</title>
+<title>Trialsim (Beta) — AIMR</title>
 <meta name="description" content="Interactive clinical trial enrollment simulator. Model recruitment strategies, site portfolios, and startup timelines. Free, no login required.">
 <meta property="og:site_name" content="Trialsim · AIMR">
 <meta property="og:title" content="Trialsim — Clinical Trial Enrollment Simulator">
@@ -55,7 +55,8 @@
   .topbar { display: flex; align-items: center; height: 48px; padding: 0 24px; background: var(--bg2); border-bottom: 1px solid var(--border); gap: 16px; }
   .topbar-brand { display: flex; align-items: center; gap: 8px; }
   .topbar-brand h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
-  .topbar-brand .beta-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; background: var(--accent-bg); border: 1px solid rgba(176,78,48,0.2); font-size: 9px; font-weight: 600; color: var(--accent); letter-spacing: 0.3px; }
+  /* Beta pill — AIMR purple (#381d92), consistent across every AIMR subdomain tool. Do not re-skin to the app's accent. */
+  .topbar-brand .beta-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; background: rgba(56,29,146,0.1); border: 1px solid rgba(56,29,146,0.25); font-size: 9px; font-weight: 600; color: #381d92; letter-spacing: 0.05em; text-transform: uppercase; }
   .topbar-sep { width: 1px; height: 20px; background: var(--bg4); flex-shrink: 0; }
   .topbar-controls { display: flex; align-items: center; gap: 8px; }
   .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -632,12 +633,26 @@ function AIMRHeader() {
 
 function AIMRFooter() {
   return (
-    <footer style={{ background: '#0f0a1e', color: 'rgba(255,255,255,0.6)', padding: '2.5rem 0', fontSize: '0.85rem', fontFamily: 'Inter,sans-serif' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <span>&copy; 2026 American Institute for Medical Research, LLC</span>
-        <div style={{ display: 'flex', gap: '1.5rem' }}>
-          <a href="https://www.linkedin.com/company/aimronline" target="_blank" rel="noopener" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>LinkedIn</a>
-          <a href="https://aimronline.org/about.html#privacy" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Privacy</a>
+    <footer style={{ background: '#0f0a1e', color: 'rgba(255,255,255,0.6)', padding: '2rem 0 2.5rem', fontSize: '0.85rem', fontFamily: 'Inter,sans-serif' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1.5rem' }}>
+        {/* AIMR-standard license / version / feedback block */}
+        <div style={{ padding: '16px 0', borderTop: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, marginBottom: 20 }}>
+          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.08)', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginRight: 8 }}>PolyForm NC 1.0.0</span>
+          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.08)', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginRight: 8 }}>Data: CC BY-NC 4.0</span>
+          <span style={{ marginRight: 8 }}>v0.4.0-beta</span>
+          <span>&middot;</span>
+          <span style={{ marginLeft: 8 }}>
+            See something wrong? Use the feedback button in the bottom-right corner &mdash;{' '}
+            <strong style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>especially to report incorrect or missing data.</strong>
+          </span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <span>&copy; 2026 American Institute for Medical Research, LLC &middot; Source-available, non-profit</span>
+          <div style={{ display: 'flex', gap: '1.5rem' }}>
+            <a href="https://github.com/matthewhmaxwell/trialsim" target="_blank" rel="noopener" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>GitHub</a>
+            <a href="https://www.linkedin.com/company/aimronline" target="_blank" rel="noopener" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>LinkedIn</a>
+            <a href="https://aimronline.org/about.html#privacy" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Privacy</a>
+          </div>
         </div>
       </div>
     </footer>
@@ -1710,7 +1725,7 @@ function App() {
   </div>
 
   <div class="footer">
-    This report was generated by Trialsim — an open-source enrollment simulator from the American Institute for Medical Research.
+    This report was generated by Trialsim (beta) — a source-available enrollment simulator from the American Institute for Medical Research. Free for non-commercial use; commercial rights reserved.
     Defaults are drawn from published industry benchmarks where cited; projections (marked ⚠) are scenario assumptions and should be calibrated against local data before planning decisions.
     <br>Report ID: ${Math.random().toString(36).slice(2, 10)} · ${new Date().toISOString()}
   </div>
@@ -1989,9 +2004,17 @@ function App() {
   };
 
   // ── Dynamic page title ──
+  // AIMR standard: every subdomain tool keeps "(Beta)" in the title bar until
+  // beta is lifted centrally.
   useEffect(() => {
-    const titles = { home: 'Trialsim — Clinical Trial Enrollment Simulator', study: 'Study View — Trialsim', site: 'Multi-Site View — Trialsim', single: 'Single Site View — Trialsim', tutorial: 'Guide — Trialsim' };
-    document.title = titles[activeTab] || 'Trialsim — AIMR';
+    const titles = {
+      home: 'Trialsim (Beta) — Clinical Trial Enrollment Simulator',
+      study: 'Study View — Trialsim (Beta)',
+      site: 'Multi-Site View — Trialsim (Beta)',
+      single: 'Single Site View — Trialsim (Beta)',
+      tutorial: 'Guide — Trialsim (Beta)',
+    };
+    document.title = titles[activeTab] || 'Trialsim (Beta) — AIMR';
   }, [activeTab]);
 
   // Mobile gate: render before anything else so a narrow viewport never drops into the broken layout.
@@ -2006,9 +2029,19 @@ function App() {
         <AIMRHeader />
         {/* Hero */}
         <div className="home-hero">
-          <div className="hero-badge">Beta &middot; Free &middot; Non-Commercial</div>
-          <h1>Trialsim</h1>
+          <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: 14, justifyContent: 'center' }}>
+            Trialsim
+            {/* AIMR-standard beta pill — solid purple fill reads well on dark hero. */}
+            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: 14, background: '#381d92', color: '#fff', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', verticalAlign: 'middle' }}>Beta</span>
+          </h1>
           <p className="hero-sub">Interactive enrollment simulation for clinical trials. Model how different recruitment strategies, site configurations, and protocol designs affect your enrollment timeline.</p>
+          {/* Unified AIMR license line — identical wording across every subdomain tool. */}
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: -8, marginBottom: 28, fontStyle: 'italic', lineHeight: 1.6, maxWidth: 720, marginLeft: 'auto', marginRight: 'auto' }}>
+            Free for non-commercial use &middot;{' '}
+            <a href="https://github.com/matthewhmaxwell/trialsim" target="_blank" rel="noopener" style={{ color: '#fff', textDecoration: 'underline', textUnderlineOffset: 2 }}>Code &amp; data on GitHub</a>{' '}
+            &middot; Commercial rights reserved &middot;{' '}
+            Feedback welcome &mdash; look for the feedback button in the bottom-right corner
+          </p>
           <button className="hero-cta" onClick={() => setActiveTab('study')}>Launch Simulator &rarr;</button>
           <button className="hero-sec" onClick={() => { document.getElementById('home-how').scrollIntoView({ behavior: 'smooth' }); }}>See How It Works</button>
         </div>
@@ -2633,6 +2666,10 @@ function App() {
               </div>
             </div>
             <SiteTable sites={sites} onChange={setSites} onAdd={addSite} onDelete={id => setSites(p => p.filter(s => s.id !== id))} onDrillIn={drillIntoSite} />
+            {/* AIMR-standard data-issue nudge — funnel "Data Issue" reports into the feedback widget. */}
+            <p style={{ fontSize: 10, color: 'var(--text3)', fontStyle: 'italic', marginTop: 8, lineHeight: 1.5 }}>
+              Sample site names are aggregated from public sources and may be incomplete. If you spot an error or a missing entry, please use the feedback button in the bottom-right corner &mdash; it helps everyone.
+            </p>
           </div>
 
           <div className="results-section">
