@@ -394,8 +394,8 @@
   .mobile-gate .mg-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; width: 100%; max-width: 300px; }
   .mobile-gate .mg-btn-primary { background: var(--accent); color: #fff; border: none; padding: 12px 20px; border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
   .mobile-gate .mg-btn-ghost { background: transparent; color: var(--text3); border: 1px solid var(--border); padding: 10px 20px; border-radius: var(--radius); font-size: 12px; cursor: pointer; font-family: inherit; }
-  .mobile-gate .mg-list { text-align: left; max-width: 360px; margin-top: 12px; font-size: 12px; color: var(--text2); }
-  .mobile-gate .mg-list li { margin-bottom: 6px; padding-left: 16px; position: relative; line-height: 1.45; }
+  .mobile-gate .mg-list { text-align: left; max-width: 360px; margin-top: 12px; font-size: 12px; color: var(--text2); list-style: none; padding-left: 0; }
+  .mobile-gate .mg-list li { margin-bottom: 6px; padding-left: 20px; position: relative; line-height: 1.45; }
   .mobile-gate .mg-list li::before { content: '\2713'; position: absolute; left: 0; color: var(--green); font-weight: 700; }
   @media (max-width: 768px) {
     .mobile-notice { display: block; }
@@ -1089,7 +1089,12 @@ function App() {
       return next;
     });
   }, []);
-  const [hasEdited, setHasEdited] = useState(false);
+  // hasEdited was a pre-v0.4 "Unsaved changes" reminder pointing at JSON Export.
+  // Save Scenario (Library) is now the obvious save path, and localStorage
+  // autosaves on every change — the reminder was noise. Kept as a stub to
+  // avoid churn at the handful of callsites that still reference it.
+  const hasEdited = false;
+  const setHasEdited = () => {};
 
   // ── Persistence: localStorage autosave + shareable URL ──
   const STORAGE_KEY = 'trialsim_state_v1';
@@ -1588,21 +1593,28 @@ function App() {
     if (actualsMode === 'sites') {
       pushHistory('Calibrate sites');
       // Match observed rows to sites by case-insensitive substring match.
+      // Base rate is stamped on first calibration so re-calibration doesn't
+      // compound the multiplier — each pass recomputes against the original.
       const updates = []; const unmatched = [];
       parsed.forEach(p => {
         const needle = p.name.toLowerCase();
         const match = sites.find(s => s.name.toLowerCase().includes(needle) || needle.includes(s.name.toLowerCase()));
         if (!match) { unmatched.push(p.name); return; }
+        const baseRate = match.baseEnrollmentRate != null ? match.baseEnrollmentRate : match.enrollmentRate;
         const observedRate = p.observed / p.weeksActive;
-        const modeledRate = match.enrollmentRate * (1 - (match.screenFailRate || 0) / 100) * (1 - (match.dropoutRate || 0) / 100);
+        const modeledRate = baseRate * (1 - (match.screenFailRate || 0) / 100) * (1 - (match.dropoutRate || 0) / 100);
         const mult = modeledRate > 0 ? observedRate / modeledRate : 1;
-        updates.push({ id: match.id, mult, observedRate, modeledRate });
+        updates.push({ id: match.id, mult, observedRate, baseRate });
       });
       if (!updates.length) { showToast(`No site names matched (tried ${parsed.length})`); return; }
       setSites(prev => prev.map(s => {
         const u = updates.find(x => x.id === s.id);
         if (!u) return s;
-        return { ...s, enrollmentRate: +(s.enrollmentRate * u.mult).toFixed(2), calibrated: { observedRate: +u.observedRate.toFixed(2), mult: +u.mult.toFixed(2) } };
+        return { ...s,
+          baseEnrollmentRate: u.baseRate,
+          enrollmentRate: +(u.baseRate * u.mult).toFixed(2),
+          calibrated: { observedRate: +u.observedRate.toFixed(2), mult: +u.mult.toFixed(2) },
+        };
       }));
       setActualsData({ mode: 'sites', matched: updates.length, unmatched });
       setShowActualsPanel(false);
@@ -1617,15 +1629,20 @@ function App() {
         const needle = p.name.toLowerCase();
         const match = sources.find(s => s.name.toLowerCase().includes(needle) || needle.includes(s.name.toLowerCase()));
         if (!match) { unmatched.push(p.name); return; }
+        const baseVolume = match.baseVolume != null ? match.baseVolume : match.volume;
         const observedRate = p.observed / p.weeksActive;
-        const mult = match.volume > 0 ? observedRate / match.volume : 1;
-        updates.push({ id: match.id, mult, observedRate });
+        const mult = baseVolume > 0 ? observedRate / baseVolume : 1;
+        updates.push({ id: match.id, mult, observedRate, baseVolume });
       });
       if (!updates.length) { showToast(`No source names matched (tried ${parsed.length})`); return; }
       setSources(prev => prev.map(s => {
         const u = updates.find(x => x.id === s.id);
         if (!u) return s;
-        return { ...s, volume: Math.round(s.volume * u.mult), calibrated: { observedRate: +u.observedRate.toFixed(2), mult: +u.mult.toFixed(2) } };
+        return { ...s,
+          baseVolume: u.baseVolume,
+          volume: Math.round(u.baseVolume * u.mult),
+          calibrated: { observedRate: +u.observedRate.toFixed(2), mult: +u.mult.toFixed(2) },
+        };
       }));
       setActualsData({ mode: 'sources', matched: updates.length, unmatched });
       setShowActualsPanel(false);
@@ -1633,7 +1650,23 @@ function App() {
       return;
     }
   };
-  const clearActuals = () => { setActualsData(null); setActualsInput(''); setSites(prev => prev.map(s => ({ ...s, calibrated: undefined }))); setSources(prev => prev.map(s => ({ ...s, calibrated: undefined }))); showToast('Cleared actuals'); };
+  // Clear actuals: revert rates to their pre-calibration baseline and drop the badges.
+  // Without the revert, × was misleading — it removed the indicator but kept the mutated rate.
+  const clearActuals = () => {
+    pushHistory('Clear calibration');
+    setActualsData(null); setActualsInput('');
+    setSites(prev => prev.map(s => {
+      if (s.baseEnrollmentRate == null) return { ...s, calibrated: undefined };
+      const { baseEnrollmentRate, calibrated, ...rest } = s;
+      return { ...rest, enrollmentRate: baseEnrollmentRate };
+    }));
+    setSources(prev => prev.map(s => {
+      if (s.baseVolume == null) return { ...s, calibrated: undefined };
+      const { baseVolume, calibrated, ...rest } = s;
+      return { ...rest, volume: baseVolume };
+    }));
+    showToast('Reverted calibrated rates to baseline');
+  };
 
   const exportConfig = () => {
     const config = { template, sources, stages, targetN, numSites, sites, siteTargetN, siteScenario, ssIdentity, ssStartup, ssReferrals, ssFunnel, ssMaxConcurrent, ssTreatmentDuration, ssTargetN, exportedAt: new Date().toISOString() };
