@@ -804,7 +804,7 @@ function ConfigPanel({ node, nodeType, onChange, onDelete, onClose, onRename }) 
     <div className="config-overlay">
       <div className="config-header">
         <h3>Configure {isSource ? 'Source' : 'Stage'}</h3>
-        <button className="config-close" onClick={onClose}>&times;</button>
+        <button className="config-close" onClick={onClose} aria-label="Close">&times;</button>
       </div>
       <div className="config-body">
         <div className="cfg-group"><label>Name</label><input type="text" value={node.name} onChange={e => onRename(e.target.value)} /></div>
@@ -914,8 +914,8 @@ function SiteTable({ sites, onChange, onAdd, onDelete, onDrillIn }) {
               <td className="num-cell"><input type="number" min="0" step="100" value={s.costPerPatient || ''} placeholder="$" onChange={e => updateSite(s.id, 'costPerPatient', +e.target.value || 0)} /></td>
               <td className="num-cell"><input type="number" min="0" value={s.cap || ''} placeholder={'\u221e'} onChange={e => updateSite(s.id, 'cap', e.target.value ? +e.target.value : null)} /></td>
               <td className="act-cell"><input type="checkbox" checked={s.active} onChange={e => updateSite(s.id, 'active', e.target.checked)} style={{ accentColor: 'var(--accent)' }} /></td>
-              <td className="detail-cell">{onDrillIn && <button className="detail-btn" onClick={() => onDrillIn(s.id)}>{'\u2192'}</button>}</td>
-              <td className="del-cell"><button className="del-btn" onClick={() => onDelete(s.id)}>&times;</button></td>
+              <td className="detail-cell">{onDrillIn && <button className="detail-btn" onClick={() => onDrillIn(s.id)} aria-label={`Drill into ${s.name}`} title={`Open ${s.name} in Single Site View`}>{'\u2192'}</button>}</td>
+              <td className="del-cell"><button className="del-btn" onClick={() => onDelete(s.id)} aria-label={`Remove ${s.name}`} title={`Remove ${s.name}`}>&times;</button></td>
             </tr>
           ))}
           <tr className="add-row"><td colSpan="10"><button className="add-btn" onClick={onAdd}>+ Add Site</button></td></tr>
@@ -1279,9 +1279,18 @@ function App() {
     try { applyState(JSON.parse(entry.state)); showToast(`Redid: ${entry.label}`); } catch { showToast('Redo failed'); }
     setHistoryTick(t => t + 1);
   };
-  // Cmd-Z / Ctrl-Z for undo; Shift adds redo.
+  // Cmd-Z / Ctrl-Z for undo; Shift adds redo. Escape closes the top-most open overlay.
   useEffect(() => {
     const onKey = (e) => {
+      // Esc cascade — close whichever layer is highest in z-order.
+      if (e.key === 'Escape') {
+        if (moreMenuOpen) { setMoreMenuOpen(false); return; }
+        if (showActualsPanel) { setShowActualsPanel(false); return; }
+        if (showSnapshotsPanel) { setShowSnapshotsPanel(false); return; }
+        if (sel) { setSel(null); return; }
+        if (ssSel) { setSsSel(null); return; }
+        return;
+      }
       const mod = e.metaKey || e.ctrlKey;
       if (!mod || e.key.toLowerCase() !== 'z') return;
       const tag = (e.target && e.target.tagName) || '';
@@ -1291,7 +1300,7 @@ function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []); // handlers reference refs, no deps needed
+  }, [moreMenuOpen, showActualsPanel, showSnapshotsPanel, sel, ssSel]);
 
   // ── Named scenario library ────────────────────────────────────────
   const SCENARIO_KEY = 'trialsim_scenarios_v1';
@@ -1518,14 +1527,32 @@ function App() {
         )
       : [];
 
+    // Show only the assumptions that actually affect the current view's numbers.
+    // TA multipliers only apply to Study View config (they rescale source volumes
+    // and stage conversions there) — including them in Multi-Site / Single Site
+    // reports would be misleading since those views use explicit per-site rates.
     const relevantAssumptions = Object.entries(ASSUMPTIONS).filter(([id]) => {
       if (id.startsWith('mc.')) return true;
-      if (id.startsWith('ta.') && id !== `ta.${taPreset}` && taPreset !== 'none') return false;
-      if (id.startsWith('ta.') && taPreset === 'none' && id !== 'ta.generic') return false;
-      if (id.startsWith('startup.') && activeTab !== 'single') return false;
-      if (id.startsWith('startup.') && id !== `startup.${ssTemplate}`) return false;
-      if (id.startsWith('source.vol.agentic') && !sources.some(s => s.category === 'agentic' && s.active !== false) && activeTab === 'study') return false;
-      if (id === 'agentic.caveat' && !sources.some(s => s.category === 'agentic' && s.active !== false) && activeTab === 'study') return false;
+      // TA: only on Study view with an active TA preset.
+      if (id.startsWith('ta.')) {
+        if (activeTab !== 'study' || taPreset === 'none') return false;
+        return id === `ta.${taPreset}`;
+      }
+      // Startup durations: only on Single Site view, only the active template.
+      if (id.startsWith('startup.')) {
+        return activeTab === 'single' && id === `startup.${ssTemplate}`;
+      }
+      // Agentic: only on Study view and only when agentic sources are active.
+      const hasActiveAgentic = sources.some(s => s.category === 'agentic' && s.active !== false);
+      if (id === 'source.vol.agentic' || id === 'agentic.caveat') {
+        return activeTab === 'study' && hasActiveAgentic;
+      }
+      // Funnel assumptions: study-specific.
+      if (id.startsWith('funnel.')) return activeTab === 'study';
+      // Site ramp / cap: surface on site + single site; study too if relevant.
+      if (id === 'site.ramp' || id === 'site.cap') return true;
+      // Source volumes by category: study only.
+      if (id.startsWith('source.vol.')) return activeTab === 'study';
       return true;
     });
 
@@ -2133,7 +2160,7 @@ function App() {
           {hasEdited && <div className="save-reminder" onClick={exportConfig} style={{ cursor: 'pointer' }}>Unsaved changes &middot; Export to save</div>}
           <button className="btn btn-primary" onClick={exportReport} title="Generate a branded scenario report with charts, stats, and sourced assumptions — save as PDF or share with colleagues" style={{ fontSize: 10 }}>Report</button>
           <div style={{ position: 'relative' }}>
-            <button className="btn btn-ghost" onClick={() => setMoreMenuOpen(v => !v)} title="More actions" aria-haspopup="menu" aria-expanded={moreMenuOpen}>{'\u22EF'}</button>
+            <button className="btn btn-ghost" onClick={() => setMoreMenuOpen(v => !v)} title="More actions" aria-label="More actions" aria-haspopup="menu" aria-expanded={moreMenuOpen}>{'\u22EF'}</button>
             {moreMenuOpen && (
               <>
                 <div onClick={() => setMoreMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
@@ -2319,7 +2346,7 @@ function App() {
               <span className="wb-icon">&#x1F3AF;</span>
               <div className="wb-text">
                 <div className="wb-title">Study View: Model your recruitment strategy</div>
-                <div className="wb-desc">Pick a starting template below, then customize sources, funnel stages, and target enrollment. Click any card to edit. Results update in real-time.</div>
+                <div className="wb-desc">Pick a template, apply a therapeutic-area preset, then click any source or stage to edit. The <strong>P10–P90 uncertainty fan</strong> (200 Monte Carlo runs) is on by default above the chart; the <strong>ⓘ</strong> markers cite every default. Hit <strong>Report</strong> for a branded PDF, or <strong>+ Actuals</strong> to refit from observed enrollment.</div>
               </div>
               <button className="wb-close" onClick={() => setShowWelcome(p => ({ ...p, study: false }))}>&times;</button>
             </div>
@@ -2347,7 +2374,7 @@ function App() {
             </div>
             {drawerOpen && (
               <div className="source-drawer">
-                {available.map(s => <button key={s.id} className="source-chip" onClick={() => addSource(s.id)}><span className="chip-dot" style={{ background: CAT_COLORS[s.category] }} />{s.name}</button>)}
+                {available.map(s => <button key={s.id} className="source-chip" onClick={() => addSource(s.id)} title={`${CAT_LABELS[s.category]} source`}><span className="chip-dot" style={{ background: CAT_COLORS[s.category] }} aria-hidden="true" />{s.name}</button>)}
                 <button className="source-chip" onClick={addCustomSource} style={{ borderStyle: 'dashed' }}>+ Custom</button>
               </div>
             )}
@@ -2357,7 +2384,7 @@ function App() {
                 <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 4 }}>Sources</div>
                 {sources.map(s => (
                   <div key={s.id} className={`source-card ${sel?.id === s.id ? 'selected' : ''} ${s.active === false ? 'inactive' : ''}`} onClick={() => setSel({ id: s.id, type: 'source' })} title={s.category === 'agentic' ? 'Scenario assumption — not observed benchmark. Click for source.' : undefined}>
-                    <span className="cat-dot" style={{ background: CAT_COLORS[s.category] }} /><span className="sc-name">{s.name}</span>
+                    <span className="cat-dot" style={{ background: CAT_COLORS[s.category] }} aria-hidden="true" title={`${CAT_LABELS[s.category]} source`} /><span className="sc-name">{s.name}</span>
                     {s.category === 'agentic' && <span style={{ fontSize: 8, color: 'var(--orange)', fontWeight: 700, letterSpacing: 0.3 }}>{'\u26A0'}</span>}
                     <span className="sc-vol">{s.volume}/w</span>
                   </div>
@@ -2510,7 +2537,7 @@ function App() {
               <span className="wb-icon">&#x1F3E5;</span>
               <div className="wb-text">
                 <div className="wb-title">Multi-Site View: Forecast enrollment across your site portfolio</div>
-                <div className="wb-desc">Edit sites directly in the table, import a CSV, or load sample data. Click the arrow button on any row to drill into that site's detailed view. All changes to rates and screen failure update the enrollment forecast instantly.</div>
+                <div className="wb-desc">Edit sites inline, import a CSV, or load a sample scenario. Sites have a 4-week ramp-up by default. Click <strong>+ Calibrate</strong> above the chart to paste observed per-site enrollment — each matched site's rate rescales and gets a green dot. Click the <strong>→</strong> on any row to drill in (edits sync back).</div>
               </div>
               <button className="wb-close" onClick={() => setShowWelcome(p => ({ ...p, site: false }))}>&times;</button>
             </div>
@@ -2602,7 +2629,7 @@ function App() {
               <span className="wb-icon">&#x1F52C;</span>
               <div className="wb-text">
                 <div className="wb-title">Single Site View: Model one site's startup and patient pipeline</div>
-                <div className="wb-desc">Configure the Gantt timeline to set regulatory, legal, and operational milestones. Add referral sources and tune the patient funnel below. First Patient In (FPI) is auto-calculated from the critical path. Drill in from Multi-Site View to sync changes back.</div>
+                <div className="wb-desc">Click any Gantt bar to edit regulatory, legal, or operational milestones — First Patient In is computed from the critical path. Add referrals, tune funnel stages, and set coordinator FTEs (~8 patients/coordinator, <strong>SCRS 2022</strong>). When drilled in from Multi-Site, edits sync back to the linked row — look for the <strong>Syncing to "…"</strong> pill in the toolbar.</div>
               </div>
               <button className="wb-close" onClick={() => setShowWelcome(p => ({ ...p, single: false }))}>&times;</button>
             </div>
@@ -2754,7 +2781,7 @@ function App() {
           return (
             <ConfigWrapper onClose={() => setSsSel(null)}>
             <div className="config-overlay">
-              <div className="config-header"><h3>Configure Stage</h3><button className="config-close" onClick={() => setSsSel(null)}>&times;</button></div>
+              <div className="config-header"><h3>Configure Stage</h3><button className="config-close" onClick={() => setSsSel(null)} aria-label="Close">&times;</button></div>
               <div className="config-body">
                 <div className="cfg-group"><label>Name</label><input type="text" value={stage.name} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, name: e.target.value } : f))} /></div>
                 <div className="cfg-group"><label title="Percentage of patients who pass this stage and advance to the next">Conversion Rate (%)</label><div className="slider-row"><input type="range" min="0" max="100" value={stage.conversionRate} onChange={e => setSsFunnel(p => p.map(f => f.id === stage.id ? { ...f, conversionRate: +e.target.value } : f))} /><span className="val">{stage.conversionRate}%</span></div></div>
@@ -2772,7 +2799,7 @@ function App() {
           return (
             <ConfigWrapper onClose={() => setSsSel(null)}>
             <div className="config-overlay">
-              <div className="config-header"><h3>Configure Source</h3><button className="config-close" onClick={() => setSsSel(null)}>&times;</button></div>
+              <div className="config-header"><h3>Configure Source</h3><button className="config-close" onClick={() => setSsSel(null)} aria-label="Close">&times;</button></div>
               <div className="config-body">
                 <div className="cfg-group"><label>Name</label><input type="text" value={ref.name} onChange={e => setSsReferrals(p => p.map(r => r.id === ref.id ? { ...r, name: e.target.value } : r))} /></div>
                 <div className="cfg-group"><label>Volume (patients/week)</label><div className="slider-row"><input type="range" min="0" max="50" value={ref.volumePerWeek} onChange={e => setSsReferrals(p => p.map(r => r.id === ref.id ? { ...r, volumePerWeek: +e.target.value } : r))} /><span className="val">{ref.volumePerWeek}</span></div></div>
@@ -2790,7 +2817,7 @@ function App() {
           <div className="snapshots-panel">
             <div className="snapshots-header">
               <h3>Scenario Library <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text3)', marginLeft: 8 }}>Persisted in this browser</span></h3>
-              <button className="config-close" onClick={() => setShowSnapshotsPanel(false)}>&times;</button>
+              <button className="config-close" onClick={() => setShowSnapshotsPanel(false)} aria-label="Close scenario library">&times;</button>
             </div>
             <div className="snapshots-body">
               {snapshots.length === 0 && <p style={{ fontSize: 12, color: 'var(--text3)', padding: 20 }}>No saved scenarios yet. Click <strong>Save Scenario</strong> in the toolbar to bookmark the current configuration. Scenarios persist across reloads in this browser.</p>}
@@ -2849,7 +2876,7 @@ function App() {
           <div className="snapshots-panel" style={{ maxWidth: 620 }}>
             <div className="snapshots-header">
               <h3>Calibrate from Actuals</h3>
-              <button className="config-close" onClick={() => setShowActualsPanel(false)}>&times;</button>
+              <button className="config-close" onClick={() => setShowActualsPanel(false)} aria-label="Close calibration panel">&times;</button>
             </div>
             <div className="snapshots-body" style={{ padding: 20 }}>
               <div style={{ display: 'flex', gap: 4, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
