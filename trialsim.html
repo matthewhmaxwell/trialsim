@@ -2289,6 +2289,19 @@ function App() {
           {activeTab !== 'home' && activeTab !== 'tutorial' && <>
             <button className="btn btn-ghost" onClick={undo} disabled={!historyRef.current.length} title={historyRef.current.length ? `Undo: ${historyRef.current[historyRef.current.length - 1].label} (\u2318Z)` : 'Nothing to undo'} style={{ opacity: historyRef.current.length ? 1 : 0.35, fontSize: 11 }}>{'\u21B6'} Undo</button>
             <button className="btn btn-ghost" onClick={redo} disabled={!futureRef.current.length} title={futureRef.current.length ? `Redo: ${futureRef.current[futureRef.current.length - 1].label} (\u21E7\u2318Z)` : 'Nothing to redo'} style={{ opacity: futureRef.current.length ? 1 : 0.35, fontSize: 11 }}>{'\u21B7'} Redo</button>
+            {(() => {
+              const calibCount = activeTab === 'site' ? sites.filter(s => s.calibrated).length
+                : activeTab === 'study' ? sources.filter(s => s.calibrated).length : 0;
+              const defaultMode = activeTab === 'site' ? 'sites' : activeTab === 'study' ? 'sources' : 'aggregate';
+              return (
+                <button
+                  className="btn"
+                  onClick={() => { setActualsMode(defaultMode); setShowActualsPanel(true); }}
+                  title="Calibrate the forecast against observed actuals from a pilot or ongoing enrollment."
+                  style={calibCount > 0 ? { color: 'var(--green)', borderColor: 'rgba(45,122,80,0.35)' } : undefined}
+                >{calibCount > 0 ? `Calibrated (${calibCount})` : 'Calibrate'}</button>
+              );
+            })()}
             <button className="btn" onClick={() => saveScenario()}>Save Scenario</button>
             <button className="btn" onClick={() => setShowSnapshotsPanel(s => !s)} style={{ color: snapshots.length > 0 ? 'var(--accent)' : 'var(--text3)' }}>Library ({snapshots.length})</button>
             {compareOn && <button className="btn" onClick={() => setCompareOn(false)} style={{ color: 'var(--orange)' }}>Clear</button>}
