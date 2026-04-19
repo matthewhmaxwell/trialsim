@@ -210,8 +210,8 @@ function applyTAPreset(taKey, sources, stages) {
   });
   const baseStages = stages.map(s => {
     if (s.id === 'terminal') return s;
-    if (s.baseConversion == null && s.baseDropout == null) return s;
-    const { baseConversion, baseDropout, ...rest } = s;
+    if (s.baseConversion == null && s.baseDropout == null && s.clippedConv == null) return s;
+    const { baseConversion, baseDropout, clippedConv, ...rest } = s;
     return {
       ...rest,
       conversionRate: baseConversion != null ? baseConversion : rest.conversionRate,
@@ -232,13 +232,17 @@ function applyTAPreset(taKey, sources, stages) {
   }));
   const newStages = baseStages.map(s => {
     if (s.id === 'terminal') return s;
-    return {
+    const uncappedConv = Math.round(s.conversionRate * (ta.conversionMult || 1) - (ta.screenFailBoost || 0) * 0.25);
+    const cappedConv = Math.min(100, Math.max(5, uncappedConv));
+    const out = {
       ...s,
       baseConversion: s.conversionRate,
       baseDropout: s.dropoutRate,
-      conversionRate: Math.min(100, Math.max(5, Math.round(s.conversionRate * (ta.conversionMult || 1) - (ta.screenFailBoost || 0) * 0.25))),
+      conversionRate: cappedConv,
       dropoutRate: Math.min(30, Math.max(0, Math.round((s.dropoutRate || 0) * (ta.dropoutMult || 1)))),
     };
+    if (uncappedConv > 100) out.clippedConv = uncappedConv;
+    return out;
   });
   return { sources: newSources, stages: newStages };
 }

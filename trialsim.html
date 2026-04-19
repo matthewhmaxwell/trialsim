@@ -110,6 +110,7 @@
   .stage-card .sc-stats2 { display: flex; gap: 8px; font-size: 10px; color: var(--text3); margin-top: 1px; }
   .stage-card .util-bar { height: 3px; border-radius: 2px; background: var(--bg4); margin-top: 8px; overflow: hidden; }
   .stage-card .util-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .stage-card .sc-clipped { margin-top: 6px; padding: 2px 6px; background: rgba(176,125,32,0.12); border: 1px solid rgba(176,125,32,0.3); border-radius: 4px; font-size: 9px; font-weight: 600; color: var(--orange); display: inline-block; letter-spacing: 0.02em; }
   .terminal-card { background: var(--green-bg); border-color: rgba(45,122,80,0.25); }
   .terminal-card .sc-name { color: var(--green); }
   .stage-arrow { display: flex; align-items: center; justify-content: center; width: 32px; flex-shrink: 0; color: var(--bg4); }
@@ -2561,6 +2562,11 @@ function App() {
                         <div className="sc-name">{stage.name}</div>
                         {!isT && <><div className="sc-stats"><span>{stage.conversionRate}% conv</span><span>{stage.throughputPerWeek}/wk</span></div><div className="sc-stats2"><span>{stage.avgDurationDays}d</span>{stage.dropoutRate > 0 && <span>{stage.dropoutRate}% drop</span>}</div><div className="util-bar"><div className="util-fill" style={{ width: `${Math.min(util * 100, 200)}%`, background: uc }} /></div></>}
                         {isT && <div className="sc-stats" style={{ color: 'var(--green)' }}>Target endpoint</div>}
+                        {!isT && stage.clippedConv && (
+                          <div className="sc-clipped" title={`TA × baseline would give ${stage.clippedConv}% conversion — clamped at 100%. Effective multiplier is lower than the preset nominal.`}>
+                            &#9888; clipped at 100%
+                          </div>
+                        )}
                       </div>
                       {i < stages.length - 1 && <div className="stage-arrow"><ArrowSVG /></div>}
                     </React.Fragment>
