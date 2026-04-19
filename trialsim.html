@@ -470,6 +470,9 @@
   /* ── Tutorial Tab ────────────────────────────────────── */
   .tab-btn.tab-tutorial { color: var(--green); }
   .tab-btn.tab-tutorial.active { color: var(--green); border-bottom-color: var(--green); }
+  .tab-bar-reopen { margin-left: auto; display: flex; align-items: center; padding-right: 4px; }
+  .tab-bar-reopen .reopen-btn { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg2); color: var(--text3); font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; font-family: inherit; transition: all 0.12s; }
+  .tab-bar-reopen .reopen-btn:hover { background: var(--accent-bg); color: var(--accent); border-color: rgba(176,78,48,0.3); }
   .tutorial-page { padding: 32px; max-width: 900px; margin: 0 auto; }
   .tutorial-page h2 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 6px; letter-spacing: -0.3px; }
   .tutorial-page .tp-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; line-height: 1.5; }
@@ -2331,6 +2334,11 @@ function App() {
         <button className={`tab-btn ${activeTab === 'study' ? 'active' : ''}`} onClick={() => setActiveTab('study')}>Study View <span className="tab-sub">Source mix & funnel</span></button>
         <button className={`tab-btn ${activeTab === 'site' ? 'active' : ''}`} onClick={() => setActiveTab('site')}>Multi-Site <span className="tab-sub">Site portfolio</span></button>
         <button className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')}>Single Site <span className="tab-sub">Startup & pipeline</span></button>
+        {['study','site','single'].includes(activeTab) && !showWelcome[activeTab] && (
+          <div className="tab-bar-reopen">
+            <button className="reopen-btn" title="Show the welcome banner for this view" aria-label="Re-open welcome banner" onClick={() => setShowWelcome(p => ({ ...p, [activeTab]: true }))}>?</button>
+          </div>
+        )}
       </div>
 
       {isPlaying && animFrame !== null && (
