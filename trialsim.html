@@ -2261,23 +2261,27 @@ function App() {
           </>}
         </div>
         <div className="topbar-right">
-          <button className="btn btn-primary" title="Animate the enrollment curve week-by-week. Results update in real-time as you edit." onClick={() => { if (isPlaying) { setIsPlaying(false); setAnimFrame(null); setMilestone(null); } else setIsPlaying(true); }}>
-            {isPlaying ? '\u25A0 Stop' : '\u25B6 Replay'}
-          </button>
-          {isPlaying && currentTimeline.length > 0 && (
-            <>
-              <div className="speed-control">
-                <label>Speed</label>
-                <input type="range" min="0.25" max="5" step="0.25" value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)} />
-                <span className="speed-val">{playSpeed}x</span>
-              </div>
-              <div className="scrubber-control">
-                <label>Week</label>
-                <input type="range" min="0" max={currentTimeline.length - 1} step="1" value={animFrame ?? 0} onChange={e => { if (animRef.current) clearInterval(animRef.current); setAnimFrame(+e.target.value); }} />
-                <span className="speed-val">{(animFrame ?? 0) + 1}</span>
-              </div>
-            </>
-          )}
+          {/* Guide / tutorial view is read-only — no simulation controls,
+              no Report, no More menu. Keep the top bar uncluttered there. */}
+          {activeTab !== 'tutorial' && <>
+            <button className="btn btn-primary" title="Animate the enrollment curve week-by-week. Results update in real-time as you edit." onClick={() => { if (isPlaying) { setIsPlaying(false); setAnimFrame(null); setMilestone(null); } else setIsPlaying(true); }}>
+              {isPlaying ? '\u25A0 Stop' : '\u25B6 Replay'}
+            </button>
+            {isPlaying && currentTimeline.length > 0 && (
+              <>
+                <div className="speed-control">
+                  <label>Speed</label>
+                  <input type="range" min="0.25" max="5" step="0.25" value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)} />
+                  <span className="speed-val">{playSpeed}x</span>
+                </div>
+                <div className="scrubber-control">
+                  <label>Week</label>
+                  <input type="range" min="0" max={currentTimeline.length - 1} step="1" value={animFrame ?? 0} onChange={e => { if (animRef.current) clearInterval(animRef.current); setAnimFrame(+e.target.value); }} />
+                  <span className="speed-val">{(animFrame ?? 0) + 1}</span>
+                </div>
+              </>
+            )}
+          </>}
           {activeTab !== 'home' && activeTab !== 'tutorial' && <>
             <button className="btn btn-ghost" onClick={undo} disabled={!historyRef.current.length} title={historyRef.current.length ? `Undo: ${historyRef.current[historyRef.current.length - 1].label} (\u2318Z)` : 'Nothing to undo'} style={{ opacity: historyRef.current.length ? 1 : 0.35, fontSize: 11 }}>{'\u21B6'} Undo</button>
             <button className="btn btn-ghost" onClick={redo} disabled={!futureRef.current.length} title={futureRef.current.length ? `Redo: ${futureRef.current[futureRef.current.length - 1].label} (\u21E7\u2318Z)` : 'Nothing to redo'} style={{ opacity: futureRef.current.length ? 1 : 0.35, fontSize: 11 }}>{'\u21B7'} Redo</button>
@@ -2285,6 +2289,7 @@ function App() {
             <button className="btn" onClick={() => setShowSnapshotsPanel(s => !s)} style={{ color: snapshots.length > 0 ? 'var(--accent)' : 'var(--text3)' }}>Library ({snapshots.length})</button>
             {compareOn && <button className="btn" onClick={() => setCompareOn(false)} style={{ color: 'var(--orange)' }}>Clear</button>}
           </>}
+          {activeTab !== 'tutorial' && <>
           <div className="topbar-sep" />
           {hasEdited && <div className="save-reminder" onClick={exportConfig} style={{ cursor: 'pointer' }}>Unsaved changes &middot; Export to save</div>}
           <button className="btn btn-primary" onClick={exportReport} title="Generate a branded scenario report with charts, stats, and sourced assumptions — save as PDF or share with colleagues" style={{ fontSize: 10 }}>Report</button>
@@ -2315,6 +2320,7 @@ function App() {
               </>
             )}
           </div>
+          </>}
         </div>
       </div>
 
