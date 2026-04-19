@@ -1155,6 +1155,7 @@ function App() {
   const actualsRef = useRef(null);
   const ssDrawerRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
   const [animFrame, setAnimFrame] = useState(null);
   const animRef = useRef(null);
   const [playSpeed, setPlaySpeed] = useState(1);
@@ -2264,8 +2265,8 @@ function App() {
           {/* Guide / tutorial view is read-only — no simulation controls,
               no Report, no More menu. Keep the top bar uncluttered there. */}
           {activeTab !== 'tutorial' && <>
-            <button className="btn btn-primary" title="Animate the enrollment curve week-by-week. Results update in real-time as you edit." onClick={() => { if (isPlaying) { setIsPlaying(false); setAnimFrame(null); setMilestone(null); } else setIsPlaying(true); }}>
-              {isPlaying ? '\u25A0 Stop' : '\u25B6 Replay'}
+            <button className="btn btn-primary" title="Animate the enrollment curve week-by-week. Results update in real-time as you edit." onClick={() => { if (isPlaying) { setIsPlaying(false); setAnimFrame(null); setMilestone(null); } else { setIsPlaying(true); setHasPlayed(true); } }}>
+              {isPlaying ? '\u25A0 Stop' : (hasPlayed ? '\u25B6 Replay' : '\u25B6 Play')}
             </button>
             {isPlaying && currentTimeline.length > 0 && (
               <>
