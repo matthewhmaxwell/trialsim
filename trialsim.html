@@ -26,13 +26,17 @@
 <link rel="icon" type="image/png" sizes="32x32" href="https://aimronline.org/favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="https://aimronline.org/apple-touch-icon.png">
 <script defer data-domain="trialsim.aimronline.org" src="https://plausible.io/js/script.js"></script>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<!-- CDN scripts are pinned to exact versions + SRI-hashed. A compromised
+     unpkg/cdnjs tarball cannot substitute a malicious payload: the browser
+     will refuse to execute any script whose SHA-384 doesn't match. Update
+     versions + hashes in lockstep (fetch + openssl dgst -sha384 -binary | base64). -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js" integrity="sha384-x/ilTFv/u/eu6YSmkFDZl5V5Mm/pkxxcVv2cVJOrr1J0rvILhMvRBCy6yA75wYBj" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js" integrity="sha384-/AfDwVDXNopzPvhxMPQ11y1OCpR6mVkWx47qzSwIiquvxkcMkZddEzDNtIOtfCpk" crossorigin="anonymous"></script>
 <script>window.PropTypes = window.PropTypes || window.propTypes;</script>
-<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js" integrity="sha384-d1XH4LhwLW8j0l6VXMP8yJabdGY9ZqtZk7k7PaPk5NoUCcZ/hDkL5aaKioKQbcZg" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -524,6 +528,11 @@
 
   /* ── Save Reminder ──────────────────────────────────── */
   .save-reminder { display: flex; align-items: center; gap: 6px; padding: 4px 12px; background: rgba(176,78,48,0.06); border: 1px solid rgba(176,78,48,0.15); border-radius: 20px; font-size: 10px; color: var(--accent); font-weight: 500; animation: fadeIn 0.3s ease; }
+  /* Keyboard focus ring for the config primitives that use role="button" + tabIndex=0.
+     :focus-visible avoids the ring on mouse-click, shows it only on keyboard focus. */
+  .view-card:focus-visible, .template-card:focus-visible, .source-card:focus-visible,
+  .stage-card:focus-visible, .ref-card:focus-visible, .mf-stage:focus-visible,
+  .save-reminder:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg2); padding: 8px 20px; border-radius: var(--radius); font-size: 12px; font-weight: 500; z-index: 100; box-shadow: var(--shadow-lg); }
@@ -1381,7 +1390,7 @@ function App() {
   };
   const deleteNode = (id, type) => { if (type === 'source') setSources(p => p.filter(s => s.id !== id)); else setStages(p => p.filter(s => s.id !== id)); setSel(null); };
   const toastTimerRef = useRef(null);
-  const showToast = (m) => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); setToast(m); toastTimerRef.current = setTimeout(() => setToast(null), 2500); };
+  const showToast = (m, ms = 2500) => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); setToast(m); toastTimerRef.current = setTimeout(() => setToast(null), ms); };
 
   const serializeState = () => ({
     v: 1, activeTab, template, sources, stages, targetN,
@@ -1569,9 +1578,11 @@ function App() {
       const encoded = b64urlEncode(JSON.stringify(serializeState()));
       const url = `${window.location.origin}${window.location.pathname}#v1:${encoded}`;
       navigator.clipboard.writeText(url);
-      // Heads-up on long URLs (some chat clients truncate > 2000 chars).
-      if (url.length > 2000) showToast(`Long link (${url.length} chars) — long URLs may be truncated when pasted in some clients. Consider Export → JSON instead.`);
-      else showToast('Share link copied to clipboard');
+      // The share URL encodes the full config, including site names and costs.
+      // Warn on every copy — Slack / Teams / email clients truncate past ~2000
+      // chars, and some sponsors consider site + cost data confidential.
+      if (url.length > 2000) showToast(`Link copied — contains full config (${url.length.toLocaleString()} chars, including site names + costs). Long links may be truncated in chat clients; don't paste in public channels if sites are confidential.`, 6500);
+      else showToast('Link copied — contains full config. Don\u2019t paste in public channels if sites are confidential.', 4500);
     } catch { showToast('Could not create share link'); }
   };
   const resetAll = () => {
@@ -2222,6 +2233,21 @@ function App() {
     );
   }
 
+  // Several config primitives (source cards, stage cards, template cards, view
+  // nav cards) are styled <div>s that act like buttons. Wrapping them in <button>
+  // would break layout (buttons reset margin/padding/display). kbdBtn keeps them
+  // as <div>s but makes them real tab stops and activates on Enter/Space — the
+  // WCAG-recognised alternative when visual buttons can't be semantic buttons.
+  const kbdBtn = (onClick, opts = {}) => ({
+    role: 'button',
+    tabIndex: opts.disabled ? -1 : 0,
+    onClick,
+    onKeyDown: e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); }
+    },
+    ...opts,
+  });
+
   return (
     <div className="app">
       <AIMRHeader />
@@ -2288,13 +2314,13 @@ function App() {
             {isPlaying && currentTimeline.length > 0 && (
               <>
                 <div className="speed-control">
-                  <label>Speed</label>
-                  <input type="range" min="0.25" max="5" step="0.25" value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)} />
+                  <label htmlFor="playback-speed">Speed</label>
+                  <input id="playback-speed" type="range" min="0.25" max="5" step="0.25" value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)} aria-label={`Playback speed ${playSpeed}x`} />
                   <span className="speed-val">{playSpeed}x</span>
                 </div>
                 <div className="scrubber-control">
-                  <label>Week</label>
-                  <input type="range" min="0" max={currentTimeline.length - 1} step="1" value={animFrame ?? 0} onChange={e => { if (animRef.current) clearInterval(animRef.current); setAnimFrame(+e.target.value); }} />
+                  <label htmlFor="playback-scrubber">Week</label>
+                  <input id="playback-scrubber" type="range" min="0" max={currentTimeline.length - 1} step="1" value={animFrame ?? 0} onChange={e => { if (animRef.current) clearInterval(animRef.current); setAnimFrame(+e.target.value); }} aria-label={`Week ${(animFrame ?? 0) + 1} of ${currentTimeline.length}`} />
                   <span className="speed-val">{(animFrame ?? 0) + 1}</span>
                 </div>
               </>
@@ -2317,13 +2343,21 @@ function App() {
                 >{calibCount > 0 ? `Calibrated (${calibCount})` : 'Calibrate'}</button>
               );
             })()}
-            <button className="btn" onClick={() => saveScenario()}>Save Scenario</button>
+            <button className="btn" onClick={() => {
+              const contextLabel = activeTab === 'study' ? (TEMPLATES[template]?.name || 'Study')
+                : activeTab === 'site' ? (SITE_SCENARIOS[siteScenario]?.name || 'Portfolio')
+                : (ssIdentity.name || SS_TEMPLATES[ssTemplate]?.name || 'Site');
+              const suggestion = `${contextLabel} ${snapshots.filter(s => s.tab === activeTab).length + 1}`;
+              const name = window.prompt('Name this scenario:', suggestion);
+              if (name === null) return; // user cancelled
+              saveScenario(name.trim() || suggestion);
+            }}>Save Scenario</button>
             <button className="btn" onClick={() => setShowSnapshotsPanel(s => !s)} style={{ color: snapshots.length > 0 ? 'var(--accent)' : 'var(--text3)' }}>Library ({snapshots.length})</button>
             {compareOn && <button className="btn" onClick={() => setCompareOn(false)} style={{ color: 'var(--orange)' }}>Clear</button>}
           </>}
           {activeTab !== 'tutorial' && <>
           <div className="topbar-sep" />
-          {hasEdited && <div className="save-reminder" onClick={exportConfig} style={{ cursor: 'pointer' }}>Unsaved changes &middot; Export to save</div>}
+          {hasEdited && <div className="save-reminder" {...kbdBtn(exportConfig)} style={{ cursor: 'pointer' }}>Unsaved changes &middot; Export to save</div>}
           <button className="btn btn-primary" onClick={exportReport} title="Generate a branded scenario report with charts, stats, and sourced assumptions — save as PDF or share with colleagues" style={{ fontSize: 10 }}>Report</button>
           <div style={{ position: 'relative' }}>
             <button className="btn btn-ghost" onClick={() => setMoreMenuOpen(v => !v)} title="More actions" aria-label="More actions" aria-haspopup="menu" aria-expanded={moreMenuOpen}>{'\u22EF'}</button>
@@ -2424,21 +2458,21 @@ function App() {
             <p>Each tab answers a different business question. Click any card to jump to that view.</p>
 
             <div className="view-cards">
-              <div className="view-card" onClick={() => setActiveTab('study')}>
+              <div className="view-card" {...kbdBtn(() => setActiveTab('study'))}>
                 <div className="vc-when">Early Planning</div>
                 <h4>Study View</h4>
                 <p>Model your recruitment source mix and patient funnel. Answer: "If we use these sources with these conversion rates, when do we hit target N?"</p>
                 <p>Add/remove patient sources (clinical, digital, agentic AI). Configure each funnel stage's conversion, throughput, and dropout. Apply a therapeutic-area preset (Oncology, CNS, Vaccines, etc.) to shift defaults to TA-specific ranges.</p>
                 <div className="vc-try">Open Study View &rarr;</div>
               </div>
-              <div className="view-card" onClick={() => setActiveTab('site')}>
+              <div className="view-card" {...kbdBtn(() => setActiveTab('site'))}>
                 <div className="vc-when">Execution Planning</div>
                 <h4>Multi-Site View</h4>
                 <p>Model enrollment across your actual site portfolio. Answer: "Given these 40 sites with these rates, when do we finish?"</p>
                 <p>Edit sites inline, import from CSV, toggle sites on/off. Each site has a 4-week ramp-up + Poisson variance in the uncertainty fan. Calibrate per-site rates from observed actuals. Click the arrow on any row to drill into its detailed view.</p>
                 <div className="vc-try">Open Multi-Site View &rarr;</div>
               </div>
-              <div className="view-card" onClick={() => setActiveTab('single')}>
+              <div className="view-card" {...kbdBtn(() => setActiveTab('single'))}>
                 <div className="vc-when">Site-Level Detail</div>
                 <h4>Single Site View</h4>
                 <p>Model one site's startup timeline and patient pipeline. Answer: "When does this site get to first patient in, and how many can it enroll?"</p>
@@ -2524,7 +2558,7 @@ function App() {
             </div>
             <div className="template-cards">
               {Object.entries(TEMPLATES).map(([k, v]) => (
-                <div key={k} className={`template-card ${template === k ? 'tc-active' : ''}`} onClick={() => { setTemplate(k); loadTemplate(k); setShowWelcome(p => ({ ...p, study: false })); }}>
+                <div key={k} className={`template-card ${template === k ? 'tc-active' : ''}`} aria-pressed={template === k} {...kbdBtn(() => { setTemplate(k); loadTemplate(k); setShowWelcome(p => ({ ...p, study: false })); })}>
                   <div className="tc-name">{v.name}</div>
                   <div className="tc-desc">{v.desc}</div>
                   <div className="tc-stats">
@@ -2555,7 +2589,7 @@ function App() {
               <div className="source-stack">
                 <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 4 }}>Sources</div>
                 {sources.map(s => (
-                  <div key={s.id} className={`source-card ${sel?.id === s.id ? 'selected' : ''} ${s.active === false ? 'inactive' : ''}`} onClick={() => setSel({ id: s.id, type: 'source' })} title={s.category === 'agentic' ? 'Scenario assumption — not observed benchmark. Click for source.' : undefined}>
+                  <div key={s.id} className={`source-card ${sel?.id === s.id ? 'selected' : ''} ${s.active === false ? 'inactive' : ''}`} aria-pressed={sel?.id === s.id} aria-label={`Configure source ${s.name}`} {...kbdBtn(() => setSel({ id: s.id, type: 'source' }))} title={s.category === 'agentic' ? 'Scenario assumption — not observed benchmark. Click for source.' : undefined}>
                     <span className="cat-dot" style={{ background: CAT_COLORS[s.category] }} aria-hidden="true" title={`${CAT_LABELS[s.category]} source`} /><span className="sc-name">{s.name}</span>
                     {s.category === 'agentic' && <span style={{ fontSize: 8, color: 'var(--orange)', fontWeight: 700, letterSpacing: 0.3 }}>{'\u26A0'}</span>}
                     <span className="sc-vol">{s.volume}/w</span>
@@ -2572,7 +2606,7 @@ function App() {
                   const uc = util > 1.2 ? '#a63d34' : util > 0.8 ? '#b07d20' : '#2d7a50';
                   return (
                     <React.Fragment key={stage.id}>
-                      <div className={`stage-card ${isT ? 'terminal-card' : ''} ${sel?.id === stage.id ? 'selected' : ''}`} onClick={() => setSel({ id: stage.id, type: 'stage' })}>
+                      <div className={`stage-card ${isT ? 'terminal-card' : ''} ${sel?.id === stage.id ? 'selected' : ''}`} aria-pressed={sel?.id === stage.id} aria-label={`Configure stage ${stage.name}`} {...kbdBtn(() => setSel({ id: stage.id, type: 'stage' }))}>
                         <div className="sc-name">{stage.name}</div>
                         {!isT && <><div className="sc-stats"><span>{stage.conversionRate}% conv</span><span>{stage.throughputPerWeek}/wk</span></div><div className="sc-stats2"><span>{stage.avgDurationDays}d</span>{stage.dropoutRate > 0 && <span>{stage.dropoutRate}% drop</span>}</div><div className="util-bar"><div className="util-fill" style={{ width: `${Math.min(util * 100, 200)}%`, background: uc }} /></div></>}
                         {isT && <div className="sc-stats" style={{ color: 'var(--green)' }}>Target endpoint</div>}
@@ -2635,12 +2669,12 @@ function App() {
                       <span>Uncertainty (P10-P90)</span>
                     </label>
                     <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => setShowActualsPanel(true)} title="Paste week-by-week actual enrollment to refit the forecast">
-                      {actualsData ? `Actuals: ${actualsData.values.length} wks` : '+ Actuals'}
+                      {actualsData && actualsData.mode === 'aggregate' ? `Actuals: ${actualsData.values.length} wks` : '+ Actuals'}
                     </button>
-                    {actualsData && <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 6px', color: 'var(--red)' }} onClick={clearActuals}>&times;</button>}
+                    {actualsData && actualsData.mode === 'aggregate' && <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 6px', color: 'var(--red)' }} onClick={clearActuals}>&times;</button>}
                   </div>
                 </div>
-                {actualsData && (
+                {actualsData && actualsData.mode === 'aggregate' && actualsData.values && (
                   <div className="mc-summary" style={{ borderColor: 'var(--accent)' }}>
                     <span><strong>Fit:</strong> {actualsData.fitMultiplier}x modeled</span>
                     <span><strong>Observed:</strong> {actualsData.values[actualsData.values.length - 1]} enrolled in {actualsData.values.length} wks</span>
@@ -2672,7 +2706,7 @@ function App() {
                     </>}
                     {compareOn && prevResult && snapshotTab === activeTab && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} isAnimationActive={false} />}
                     <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill={showMonteCarlo && monteCarloResult ? 'none' : 'rgba(176,78,48,0.12)'} strokeWidth={2.5} dot={false} isAnimationActive={false} />
-                    {actualsData && <Area type="monotone" dataKey="actual" data={actualsData.values.map((v, i) => ({ week: i + 1, actual: v }))} stroke="#2d7a50" strokeWidth={2.5} fill="none" dot={{ r: 3, fill: '#2d7a50' }} isAnimationActive={false} />}
+                    {actualsData && actualsData.mode === 'aggregate' && actualsData.values && <Area type="monotone" dataKey="actual" data={actualsData.values.map((v, i) => ({ week: i + 1, actual: v }))} stroke="#2d7a50" strokeWidth={2.5} fill="none" dot={{ r: 3, fill: '#2d7a50' }} isAnimationActive={false} />}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -2833,7 +2867,7 @@ function App() {
                 <h4 style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 10, fontWeight: 600 }}>Referral Sources</h4>
                 <div className="ref-sources">
                   {ssReferrals.map((r, i) => (
-                    <div key={r.id} className={`ref-card ${ssSel?.id === r.id ? 'selected' : ''}`} onClick={() => setSsSel({ id: r.id, type: 'referral' })} style={{ cursor: 'pointer' }}>
+                    <div key={r.id} className={`ref-card ${ssSel?.id === r.id ? 'selected' : ''}`} aria-pressed={ssSel?.id === r.id} aria-label={`Configure referral source ${r.name}`} {...kbdBtn(() => setSsSel({ id: r.id, type: 'referral' }))} style={{ cursor: 'pointer' }}>
                       <div>
                         <input type="text" value={r.name} onChange={e => setSsReferrals(p => p.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} style={{ border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: 'var(--text)', padding: 0, width: '100%', fontFamily: 'inherit' }} />
                         <div className="rc-vol">
@@ -2862,7 +2896,7 @@ function App() {
                 const isT = stage.conversionRate >= 100;
                 return (
                   <React.Fragment key={stage.id}>
-                    <div className={`mf-stage ${isT ? 'mf-terminal' : ''} ${ssSel?.id === stage.id ? 'selected' : ''}`} onClick={() => !isT && setSsSel({ id: stage.id, type: 'funnel' })}>
+                    <div className={`mf-stage ${isT ? 'mf-terminal' : ''} ${ssSel?.id === stage.id ? 'selected' : ''}`} aria-pressed={!isT && ssSel?.id === stage.id} aria-label={isT ? undefined : `Configure funnel stage ${stage.name}`} {...kbdBtn(() => { if (!isT) setSsSel({ id: stage.id, type: 'funnel' }); }, { disabled: isT })}>
                       <div className="mf-name">{stage.name}</div>
                       {!isT && <div className="mf-meta">{stage.conversionRate}% conv &middot; {stage.durationDays}d &middot; {stage.dropoutRate}% drop</div>}
                       {isT && <div className="mf-meta" style={{ color: 'var(--green)' }}>Endpoint</div>}
@@ -3103,7 +3137,10 @@ function App() {
         </div>
       )}
       {milestone && <MilestoneBadge key={milestone.key} milestone={milestone} />}
-      {toast && <div className="toast">{toast}</div>}
+      {/* aria-live container is always mounted so screen readers pick up text when it appears */}
+      <div className="toast-live" role="status" aria-live="polite" aria-atomic="true">
+        {toast && <div className="toast">{toast}</div>}
+      </div>
     </div>
   );
 }
