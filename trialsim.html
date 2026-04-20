@@ -1645,6 +1645,67 @@ function App() {
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
     window.location.reload();
   };
+  // Zero out the current view's values while preserving row/stage counts + IDs.
+  // Use case: user wants the template's skeleton to remain ("same 4 sources,
+  // same 5 funnel stages, same 40 sites") but the sample names and numbers
+  // cleared so they can fill in their own from a feasibility deck without
+  // accidentally leaving placeholder values in a shipped scenario.
+  //
+  // Design notes:
+  // - Terminal stages (conversionRate >= 100) are preserved — the sim uses
+  //   that marker to detect the endpoint, zeroing it would break the sim.
+  // - IDs stay put so React keys don't churn and calibration matches survive.
+  // - Pushes to the undo stack so Cmd-Z restores exactly.
+  // - Scoped to the active view only; other views retain their state.
+  const zeroOutView = () => {
+    if (activeTab === 'study') {
+      const srcN = sources.length, stgN = stages.length;
+      const msg = `Zero out Study View? Keeps ${srcN} source${srcN === 1 ? '' : 's'} + ${stgN} stage${stgN === 1 ? '' : 's'} but clears names and sets volumes, rates, and durations to 0. Target N set to 0. Undo with \u2318Z.`;
+      if (!confirm(msg)) return;
+      pushHistory('Zero out Study');
+      setSources(sources.map(s => ({ ...s, name: '', volume: 0, rampUpWeeks: 0, costPerPatient: 0, calibrated: undefined, baseVolume: undefined, baseCost: undefined })));
+      setStages(stages.map(s => {
+        if (s.conversionRate >= 100) return s; // preserve terminal marker
+        const { baseConversion, baseDropout, clippedConv, ...rest } = s;
+        return { ...rest, name: '', conversionRate: 0, throughputPerWeek: 0, avgDurationDays: 0, dropoutRate: 0 };
+      }));
+      setTargetN(0);
+      setTaPreset('none');
+      showToast(`Zeroed out Study View — ${srcN} sources + ${stgN} stages cleared. \u2318Z to undo.`, 4000);
+    } else if (activeTab === 'site') {
+      const n = sites.length;
+      if (n === 0) { showToast('Site portfolio is already empty.'); return; }
+      const msg = `Zero out Multi-Site? Keeps ${n} site row${n === 1 ? '' : 's'} but clears names and sets rates, costs, and ramp to 0. Target N set to 0. Undo with \u2318Z.`;
+      if (!confirm(msg)) return;
+      pushHistory('Zero out Multi-Site');
+      setSites(sites.map(s => ({ ...s, name: '', enrollmentRate: 0, screenFailRate: 0, dropoutRate: 0, rampUpWeeks: 0, costPerPatient: 0, cap: 0, activWeek: 0, calibrated: undefined, baseEnrollmentRate: undefined })));
+      setSiteTargetN(0);
+      showToast(`Zeroed out Multi-Site — ${n} site rows cleared. \u2318Z to undo.`, 4000);
+    } else if (activeTab === 'single') {
+      const refN = ssReferrals.length, funN = ssFunnel.length;
+      const startupN = (ssStartup.regulatory?.length || 0) + (ssStartup.legal?.length || 0) + (ssStartup.operational?.length || 0);
+      const msg = `Zero out Single Site? Keeps ${refN} referral source${refN === 1 ? '' : 's'}, ${startupN} startup milestone${startupN === 1 ? '' : 's'}, and ${funN} funnel stage${funN === 1 ? '' : 's'} — but clears all names, volumes, costs, rates, and durations. Target N set to 0. Undo with \u2318Z.`;
+      if (!confirm(msg)) return;
+      pushHistory('Zero out Single Site');
+      const zeroTrack = track => (track || []).map(m => ({ ...m, name: '', startWeek: 0, durationWeeks: 0 }));
+      ssDispatch({ type: 'MERGE', patch: {
+        ssIdentity: { name: '', piName: '', coordinatorCount: 0 },
+        ssStartup: {
+          regulatory: zeroTrack(ssStartup.regulatory),
+          legal: zeroTrack(ssStartup.legal),
+          operational: zeroTrack(ssStartup.operational),
+        },
+        ssReferrals: ssReferrals.map(r => ({ ...r, name: '', volumePerWeek: 0, costPerPatient: 0 })),
+        ssFunnel: ssFunnel.map(s => s.conversionRate >= 100 ? s : ({ ...s, name: '', conversionRate: 0, durationDays: 0, dropoutRate: 0 })),
+        ssMaxConcurrent: 0,
+        ssTreatmentDuration: 0,
+        ssTargetN: 0,
+      } });
+      showToast(`Zeroed out Single Site — skeleton kept, values cleared. \u2318Z to undo.`, 4000);
+    } else {
+      showToast('Zero out only works on Study / Multi-Site / Single Site views.');
+    }
+  };
   // Full local-data wipe. Reset only touches STORAGE_KEY (current scenario
   // autosave); this clears the saved Scenario Library, dismissed welcome
   // banners, the mobile-gate opt-out, and any other trialsim_* keys a future
@@ -2492,6 +2553,7 @@ function App() {
                     { label: 'Export config (JSON)', action: () => { exportConfig(); setHasEdited(false); }, title: 'Download full configuration' },
                     { label: 'Import config (JSON)', action: importConfig, title: 'Load a previously exported configuration' },
                     { sep: true },
+                    { label: 'Zero out this view\u2026', action: zeroOutView, danger: true, title: 'Keep the row/stage skeleton but clear names and set numeric values to 0' },
                     { label: 'Reset to defaults', action: resetAll, danger: true, title: 'Discard changes to the current scenario and reload' },
                     { label: 'Clear all saved data\u2026', action: clearAllData, danger: true, title: 'Remove the current autosave, saved scenarios, and dismissed banners from this browser' },
                   ].map((item, i) => item.sep ? <div key={i} style={{ height: 1, background: 'var(--bg3)', margin: '4px 6px' }} /> : (
