@@ -62,7 +62,11 @@
   body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; -webkit-font-smoothing: antialiased; }
 
   /* ── Top Bar ─────────────────────────────────────────── */
-  .topbar { display: flex; align-items: center; height: 48px; padding: 0 24px; background: var(--bg2); border-bottom: 1px solid var(--border); gap: 16px; }
+  /* Topbar wraps rather than clipping. Fixed 48px height caused content to
+     disappear off the right edge at 1100–1280px viewports when long template
+     names + TA select + 5 buttons + overflow menu all competed for width.
+     min-height preserves the original single-row height when content fits. */
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; min-height: 48px; padding: 8px 24px; background: var(--bg2); border-bottom: 1px solid var(--border); gap: 16px; }
   .topbar-brand { display: flex; align-items: center; gap: 8px; }
   .topbar-brand h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
   /* Beta pill — AIMR purple (#381d92), consistent across every AIMR subdomain tool. Do not re-skin to the app's accent. */
@@ -85,7 +89,10 @@
   .btn-primary:hover { background: var(--accent2); }
   .btn-ghost { border-color: transparent; background: transparent; }
   .btn-ghost:hover { background: var(--bg3); }
-  select { padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 11px; cursor: pointer; font-family: inherit; }
+  /* Square icon-only buttons — consistent footprint with text btns (same height),
+     just without the label. Used for undo/redo where space is tight. */
+  .btn.icon-btn { padding: 5px 9px; font-size: 14px; line-height: 1; min-width: 30px; justify-content: center; }
+  select { padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 11px; cursor: pointer; font-family: inherit; max-width: 260px; text-overflow: ellipsis; }
   .field { display: flex; align-items: center; gap: 5px; }
   .field label { font-size: 11px; color: var(--text3); font-weight: 500; white-space: nowrap; }
   .field input[type="number"] { width: 58px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 12px; text-align: center; font-family: inherit; }
@@ -515,7 +522,10 @@
   .tutorial-page hr { border: none; border-top: 1px solid var(--bg4); margin: 28px 0; }
 
   /* ── Template Cards ──────────────────────────────────── */
-  .template-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 32px 0; }
+  /* Auto-fit gives 5 cols on wide screens, 4 / 3 / 2 as it narrows — no
+     orphan card hanging on its own row. 200px min balances tc-desc readability
+     against density when 5 templates are visible. */
+  .template-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 16px 32px 0; }
   .template-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow-sm); }
   .template-card:hover { box-shadow: var(--shadow-md); border-color: var(--accent); transform: translateY(-1px); }
   .template-card.tc-active { border-color: var(--accent); background: var(--accent-bg); }
@@ -2501,8 +2511,11 @@ function App() {
             )}
           </>}
           {activeTab !== 'home' && activeTab !== 'tutorial' && <>
-            <button className="btn btn-ghost" onClick={undo} disabled={!historyRef.current.length} title={historyRef.current.length ? `Undo: ${historyRef.current[historyRef.current.length - 1].label} (\u2318Z)` : 'Nothing to undo'} style={{ opacity: historyRef.current.length ? 1 : 0.35, fontSize: 11 }}>{'\u21B6'} Undo</button>
-            <button className="btn btn-ghost" onClick={redo} disabled={!futureRef.current.length} title={futureRef.current.length ? `Redo: ${futureRef.current[futureRef.current.length - 1].label} (\u21E7\u2318Z)` : 'Nothing to redo'} style={{ opacity: futureRef.current.length ? 1 : 0.35, fontSize: 11 }}>{'\u21B7'} Redo</button>
+            {/* Undo/Redo are keyboard-first (⌘Z / ⇧⌘Z); the icon-only
+                buttons are a fallback for discovery. Text labels ate ~120px
+                of toolbar width for rarely-clicked buttons. */}
+            <button className="btn btn-ghost icon-btn" onClick={undo} disabled={!historyRef.current.length} title={historyRef.current.length ? `Undo: ${historyRef.current[historyRef.current.length - 1].label} (\u2318Z)` : 'Nothing to undo'} aria-label={historyRef.current.length ? `Undo: ${historyRef.current[historyRef.current.length - 1].label}` : 'Nothing to undo'} style={{ opacity: historyRef.current.length ? 1 : 0.35 }}>{'\u21B6'}</button>
+            <button className="btn btn-ghost icon-btn" onClick={redo} disabled={!futureRef.current.length} title={futureRef.current.length ? `Redo: ${futureRef.current[futureRef.current.length - 1].label} (\u21E7\u2318Z)` : 'Nothing to redo'} aria-label={futureRef.current.length ? `Redo: ${futureRef.current[futureRef.current.length - 1].label}` : 'Nothing to redo'} style={{ opacity: futureRef.current.length ? 1 : 0.35 }}>{'\u21B7'}</button>
             {/* Calibrate is only wired for Study (per-source) and Multi-Site (per-site).
                 Single-Site aggregate calibration previously fit a multiplier that was
                 never applied to the site's referrals or funnel — surfaced a lying
@@ -2531,14 +2544,15 @@ function App() {
               if (name === null) return; // user cancelled
               saveScenario(name.trim() || suggestion);
             }}>Save Scenario</button>
-            <button className="btn" onClick={() => setShowSnapshotsPanel(s => !s)} style={{ color: snapshots.length > 0 ? 'var(--accent)' : 'var(--text3)' }}>Library ({snapshots.length})</button>
+            <button className="btn" onClick={() => setShowSnapshotsPanel(s => !s)} title={snapshots.length > 0 ? `Open scenario library (${snapshots.length} saved)` : 'Open scenario library'} style={snapshots.length > 0 ? { color: 'var(--accent)' } : undefined}>Library{snapshots.length > 0 ? ` (${snapshots.length})` : ''}</button>
             {compareOn && <button className="btn" onClick={() => setCompareOn(false)} style={{ color: 'var(--orange)' }}>Clear</button>}
           </>}
           {activeTab !== 'tutorial' && <>
-          <div className="topbar-sep" />
           {/* save-reminder chip removed — hasEdited is always false since v0.4;
               autosave + Save Scenario make the old "Unsaved changes · Export" chip
-              not just dead but actively misleading. */}
+              not just dead but actively misleading. The old decorative topbar-sep
+              between Library and Report was removed — spacing already reads the
+              break, and it was crowding the toolbar at 1100-1280px. */}
           <button className="btn btn-primary" onClick={exportReport} title="Generate a branded scenario report with charts, stats, and sourced assumptions — save as PDF or share with colleagues" style={{ fontSize: 10 }}>Report</button>
           <div style={{ position: 'relative' }}>
             <button className="btn btn-ghost" onClick={() => setMoreMenuOpen(v => !v)} title="More actions" aria-label="More actions" aria-haspopup="menu" aria-expanded={moreMenuOpen}>{'\u22EF'}</button>
