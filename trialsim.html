@@ -41,7 +41,7 @@
     --text: #1e1e1e; --text2: #5c5650; --text3: #6a645e;
     --accent: #b04e30; --accent2: #943f25; --accent-bg: rgba(176,78,48,0.06);
     --green: #2d7a50; --green-bg: rgba(45,122,80,0.07);
-    --orange: #b07d20; --red: #a63d34;
+    --orange: #8a6019; --red: #a63d34;
     --clinical: #3e73a8; --digital: #6e5494; --agentic: #2e7370;
     --radius: 6px; --radius-lg: 10px;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
@@ -1215,12 +1215,14 @@ function App() {
     setStages(t.stages.map(s => ({ ...s })));
     setTargetN(t.targetN); setNumSites(t.numSites);
     setSel(null); setPrevResult(null); setCompareOn(false); setDrawerOpen(false);
+    setHasPlayed(false);
   }, []);
   useEffect(() => { if (!hydratedFromSave.current) loadTemplate(template); }, []);
 
   // ── Site Scenario Loader ──
   const loadSiteScenario = useCallback((key) => {
     setSites(SITE_SCENARIOS[key].generate());
+    setHasPlayed(false);
   }, []);
   useEffect(() => { if (!hydratedFromSave.current) loadSiteScenario(siteScenario); }, []);
 
@@ -1345,7 +1347,17 @@ function App() {
   }), [result, stages]);
 
   const updateSrc = (id, c) => { setHasEdited(true); setSources(p => p.map(s => s.id === id ? { ...s, ...c } : s)); };
-  const updateStg = (id, c) => { setHasEdited(true); setStages(p => p.map(s => s.id === id ? { ...s, ...c } : s)); };
+  const updateStg = (id, c) => {
+    setHasEdited(true);
+    setStages(p => p.map(s => {
+      if (s.id !== id) return s;
+      const next = { ...s, ...c };
+      // Direct edits to conversionRate invalidate the "clipped at 100%" badge —
+      // the badge reflects TA × baseline arithmetic, not the user's edited value.
+      if ('conversionRate' in c) delete next.clippedConv;
+      return next;
+    }));
+  };
   const addSource = (sid) => { if (sources.find(s => s.id === sid)) return; const b = ALL_SOURCES.find(s => s.id === sid); if (b) setSources(p => [...p, { ...b, active: true }]); };
   // Add then auto-open config panel — user renames inline via the Name field.
   // Trades one click for avoiding a modal prompt; discoverable because the drawer opens focused on the name.
@@ -1497,6 +1509,7 @@ function App() {
       if (typeof s.ssTreatmentDuration === 'number') ssPatch.ssTreatmentDuration = s.ssTreatmentDuration;
       if (typeof s.ssTargetN === 'number' && s.ssTargetN > 0) ssPatch.ssTargetN = s.ssTargetN;
       if (Object.keys(ssPatch).length) ssDispatch({ type: 'MERGE', patch: ssPatch });
+      setHasPlayed(false);
       return true;
     } catch { return false; }
   };
@@ -2292,7 +2305,8 @@ function App() {
             <button className="btn btn-ghost" onClick={redo} disabled={!futureRef.current.length} title={futureRef.current.length ? `Redo: ${futureRef.current[futureRef.current.length - 1].label} (\u21E7\u2318Z)` : 'Nothing to redo'} style={{ opacity: futureRef.current.length ? 1 : 0.35, fontSize: 11 }}>{'\u21B7'} Redo</button>
             {(() => {
               const calibCount = activeTab === 'site' ? sites.filter(s => s.calibrated).length
-                : activeTab === 'study' ? sources.filter(s => s.calibrated).length : 0;
+                : activeTab === 'study' ? sources.filter(s => s.calibrated).length
+                : activeTab === 'single' && actualsData ? 1 : 0;
               const defaultMode = activeTab === 'site' ? 'sites' : activeTab === 'study' ? 'sources' : 'aggregate';
               return (
                 <button
