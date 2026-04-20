@@ -282,24 +282,29 @@ const SITE_NAMES_POOL = [
   'Lenox Hill Hospital','NYP/Weill Cornell Medical','Montefiore Medical Center',
 ];
 
-function generateSites(count, rateRange, activationSpread) {
+// generateSites is seeded deterministically by scenario key. Previously used
+// unseeded Math.random(), which re-rolled site rates / screen-fail / cost on
+// every load — a feasibility lead could show a client 11-week target, refresh,
+// and see 12-week. Forecasts must be stable given the same user inputs.
+function generateSites(count, rateRange, activationSpread, seed = 0) {
+  const rand = mulberry32(seed || 1);
   return Array.from({ length: count }, (_, i) => ({
     id: `site_${i}`,
     name: SITE_NAMES_POOL[i % SITE_NAMES_POOL.length] + (i >= SITE_NAMES_POOL.length ? ` (${Math.floor(i / SITE_NAMES_POOL.length) + 1})` : ''),
-    enrollmentRate: +(rateRange[0] + Math.random() * (rateRange[1] - rateRange[0])).toFixed(1),
-    activationWeek: Math.max(1, Math.round(1 + Math.random() * activationSpread)),
-    screenFailRate: Math.round(25 + Math.random() * 25),
-    dropoutRate: Math.round(1 + Math.random() * 5),
-    costPerPatient: Math.round(1500 + Math.random() * 3500),
+    enrollmentRate: +(rateRange[0] + rand() * (rateRange[1] - rateRange[0])).toFixed(1),
+    activationWeek: Math.max(1, Math.round(1 + rand() * activationSpread)),
+    screenFailRate: Math.round(25 + rand() * 25),
+    dropoutRate: Math.round(1 + rand() * 5),
+    costPerPatient: Math.round(1500 + rand() * 3500),
     cap: null,
     active: true,
   }));
 }
 
 const SITE_SCENARIOS = {
-  small: { name: 'Small (Phase 1)', desc: '6 sites, staggered over 4 weeks', generate: () => generateSites(6, [0.5, 2.0], 4) },
-  medium: { name: 'Medium (Phase 2/3)', desc: '40 sites, staggered over 8 weeks', generate: () => generateSites(40, [0.5, 4.0], 8) },
-  large: { name: 'Large (Global)', desc: '80 sites, staggered over 12 weeks', generate: () => generateSites(80, [0.3, 3.0], 12) },
+  small: { name: 'Small (Phase 1)', desc: '6 sites, staggered over 4 weeks', generate: () => generateSites(6, [0.5, 2.0], 4, hashSeed('small')) },
+  medium: { name: 'Medium (Phase 2/3)', desc: '40 sites, staggered over 8 weeks', generate: () => generateSites(40, [0.5, 4.0], 8, hashSeed('medium')) },
+  large: { name: 'Large (Global)', desc: '80 sites, staggered over 12 weeks', generate: () => generateSites(80, [0.3, 3.0], 12, hashSeed('large')) },
   // Blank — no sites. For users pasting their own feasibility list via CSV
   // or building up a small portfolio one site at a time.
   blank: { name: 'Blank — no sites', desc: 'Empty portfolio. Import CSV or add sites manually.', generate: () => [] },
