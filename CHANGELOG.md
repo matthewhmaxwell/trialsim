@@ -1,5 +1,48 @@
 # Trialsim Changelog
 
+## v0.4.1 — 2026-04-19
+
+Pre-launch hardening pass. Accessibility, security, correctness, and polish from a multidisciplinary review (QA, biostats, a11y, security, copy, code review, ops).
+
+### Accessibility — WCAG 2.1 AA
+- `--text3` bumped from `#8c857e` (3.5:1) to `#6a645e` (5.27:1) for AA normal text. Darkens stat sublabels, source volumes, benchmark captions, footer copy globally.
+- `--orange` bumped from `#b07d20` (3.6:1) to `#8a6019` (5.03:1) so the warning-amber text — clipped-at-100% badge, agentic source markers, "Above typical" labels — meets AA.
+- Toast wrapped in `role="status" aria-live="polite" aria-atomic="true"` so screen readers announce undo/redo/save/calibration/share messages.
+- Skip-to-main-content link (visible only on keyboard focus), `<main id="trialsim-main">` landmark, `role="tablist"` on the tab bar with per-tab `aria-selected` and `aria-controls`.
+- All three enrollment charts (Study, Multi-Site, Single-Site) wrapped in `role="img"` with a dynamic `aria-label` that summarises week-to-target and Monte Carlo P10/P50/P90. Blind users now get the numerical answer the chart encodes.
+- Speed slider and Week scrubber have `id` / `htmlFor` pairs plus dynamic `aria-label` reflecting current value.
+- Config primitives that look like buttons but couldn't be semantic `<button>`s — source-card, stage-card, template-card, view-card, ref-card, mf-stage, save-reminder — now have `role="button"`, `tabIndex=0`, Enter/Space handling, `aria-pressed` state, and a `:focus-visible` outline.
+- `prefers-reduced-motion` media query disables the particle flows, milestone pop-ins, and CSS transitions for users who opt out. Keeps 0.01ms duration so state still settles.
+- `?` pill in tab bar re-opens the dismissed welcome banner for the current view (previously the banner was unrecoverable once dismissed).
+
+### Security
+- All 6 CDN scripts pinned to exact versions (`react@18.3.1`, `react-dom@18.3.1`, `@babel/standalone@7.26.4`, `prop-types@15.8.1`, `recharts@2.12.7`, `html2canvas@1.4.1`) with SHA-384 SRI hashes and `crossorigin="anonymous"`. A compromised unpkg/cdnjs tarball can no longer substitute a malicious payload.
+- Content-Security-Policy meta tag with per-source allowlists for script/style/font/img/connect, plus `frame-ancestors 'none'` and `base-uri 'self'`. `'unsafe-inline'` on scripts is still required while Babel Standalone runtime-transforms JSX; revisit when we precompile.
+- `feedback-api.php` (aimr root): strip CR/LF from `$email`, `$fb_type`, `$source`, `$user_agent` before they're interpolated into mail headers. Closes an email-header injection vector that `FILTER_SANITIZE_EMAIL` left open.
+
+### Correctness
+- **Fixed ErrorBoundary crash** on tab navigation after per-site or per-source calibration. Study View's "+ Actuals" chip and the overlaid `<Area>` both dereferenced `actualsData.values`, which is only defined in aggregate mode. All accesses now gated on `mode === 'aggregate'`.
+- `hasPlayed` resets on template switch, site-scenario switch, and scenario load so the Play button no longer claims "Replay" on a config the user never played.
+- Direct edits to a stage's conversion rate now strip the cached `clippedConv` value, so the "⚠ clipped at 100%" badge disappears when the user drags the slider away from the TA-induced clip.
+- Single-Site Calibrate toolbar now counts aggregate calibration (`actualsData` presence) toward "Calibrated (N)" — previously always 0.
+
+### UX
+- **▶ Play** on first load (not "Replay" on a config the user never played); flips to "■ Stop" during animation; becomes "▶ Replay" after the first playback session.
+- **Calibrate** promoted from a `+ Calibrate` ghost link above the Multi-Site chart to a first-class toolbar button next to Save Scenario — with mode defaulting to sources on Study, sites on Multi-Site, aggregate on Single. Shows "Calibrated (N)" in green once any entity has been calibrated.
+- Save Scenario now opens `window.prompt()` with a smart default (context + count) instead of silently saving under a template-auto-generated name.
+- Share-link toast always warns the URL contains the full config (site names + costs). The long-URL variant also notes truncation risk for chat clients. `showToast` now takes a duration param.
+- **⚠ clipped at 100%** badge surfaces stages where a TA preset's `conversionMult` × baseline would have exceeded 100% but was clamped — previously the effective multiplier was silently lower than the preset nominal.
+
+### SEO / Ops
+- `robots.txt` allowing all crawlers with sitemap pointer.
+- `sitemap.xml` listing `/` and `/tests.html`.
+
+### Tech
+- `applyTAPreset` stashes `clippedConv` (uncapped percentage) on any stage where `conversionRate` was clamped, and strips it cleanly when a non-clipping TA is applied or when the user directly edits the conversion rate.
+- Added `kbdBtn()` helper for making styled `<div>`s keyboard-reachable without breaking visual layout (role + tabIndex + Enter/Space handler).
+
+---
+
 ## v0.4.0 — 2026-04-16
 
 Credibility, calibration, and reporting.
