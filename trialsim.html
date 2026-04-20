@@ -175,11 +175,16 @@
   @media (min-width: 1200px) { .results-grid { grid-template-columns: 1.2fr 1fr; } }
   .result-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow-sm); }
   .result-card h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 12px; font-weight: 600; }
-  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-  .stat-tile { background: var(--bg3); border-radius: var(--radius); padding: 12px; }
-  .stat-tile .st-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-  .stat-tile .st-value { font-size: 20px; font-weight: 700; margin-top: 3px; letter-spacing: -0.5px; }
-  .stat-tile .st-sub { font-size: 9px; color: var(--text3); margin-top: 1px; }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  /* Stat tiles — slightly more breathing room, tighter value/label hierarchy.
+     Label is 10px 600 with 0.6px tracking (previously 9/0.5 — too cramped to scan).
+     Value is 22px with softer -0.3px letter-spacing (previously 20/-0.5 which
+     crowded the glyphs on numbers like $2,097). st-sub line-height gives
+     multi-line subs (like "6.5 months") room to breathe. */
+  .stat-tile { background: var(--bg3); border-radius: var(--radius-lg); padding: 14px 16px; }
+  .stat-tile .st-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+  .stat-tile .st-value { font-size: 22px; font-weight: 700; margin-top: 4px; letter-spacing: -0.3px; line-height: 1.2; }
+  .stat-tile .st-sub { font-size: 10px; color: var(--text3); margin-top: 2px; line-height: 1.4; }
 
   /* Heatmap */
   .heatmap { display: flex; flex-direction: column; gap: 4px; }
@@ -535,11 +540,13 @@
   .template-card .tc-stat { background: var(--bg3); padding: 2px 6px; border-radius: 3px; }
 
   /* ── Welcome Banner ──────────────────────────────────── */
-  .welcome-banner { background: var(--accent-bg); border: 1px solid rgba(176,78,48,0.15); border-radius: var(--radius-lg); padding: 14px 20px; margin: 16px 32px 0; display: flex; align-items: flex-start; gap: 12px; }
-  .welcome-banner .wb-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  /* Welcome banner — slightly more generous padding + title size so the
+     "what's this view?" prompt reads as a header rather than inline copy. */
+  .welcome-banner { background: var(--accent-bg); border: 1px solid rgba(176,78,48,0.15); border-radius: var(--radius-lg); padding: 16px 20px; margin: 16px 32px 0; display: flex; align-items: flex-start; gap: 14px; }
+  .welcome-banner .wb-icon { font-size: 20px; flex-shrink: 0; margin-top: 0; line-height: 1; }
   .welcome-banner .wb-text { flex: 1; }
-  .welcome-banner .wb-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
-  .welcome-banner .wb-desc { font-size: 11px; color: var(--text2); line-height: 1.5; }
+  .welcome-banner .wb-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; letter-spacing: -0.1px; }
+  .welcome-banner .wb-desc { font-size: 12px; color: var(--text2); line-height: 1.55; }
   .welcome-banner .wb-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 2px 6px; flex-shrink: 0; }
   .welcome-banner .wb-close:hover { color: var(--text); }
 
