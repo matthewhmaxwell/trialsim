@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Content-Security-Policy. 'unsafe-inline' for scripts is required because
+     Babel Standalone runtime-transforms our <script type="text/babel"> block.
+     When we eventually precompile the JSX at build time, drop 'unsafe-inline'
+     and tighten script-src to 'self' + the pinned CDNs. frame-ancestors 'none'
+     prevents clickjacking; base-uri 'self' blocks <base> injection. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://plausible.io https://aimronline.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://aimronline.org https://trialsim.aimronline.org; connect-src 'self' https://aimronline.org https://plausible.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self';">
 <title>Trialsim (Beta) — AIMR</title>
 <meta name="description" content="Interactive clinical trial enrollment simulator. Model recruitment strategies, site portfolios, and startup timelines. Free, no login required.">
 <meta property="og:site_name" content="Trialsim · AIMR">
@@ -87,6 +93,10 @@
   /* ── App Layout ──────────────────────────────────────── */
   .app { display: flex; flex-direction: column; height: 100vh; }
   .main-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+  /* Skip link — hidden by default, revealed when keyboard-focused. Lets screen-reader
+     and keyboard users bypass the header + toolbar + tab bar and jump straight to content. */
+  .skip-link { position: absolute; left: -9999px; top: 0; z-index: 9999; background: var(--accent); color: #fff; padding: 8px 14px; border-radius: var(--radius); font-size: 12px; font-weight: 600; text-decoration: none; }
+  .skip-link:focus { left: 8px; top: 8px; }
 
   /* ── Pipeline Section (Study View) ──────────────────── */
   .pipeline-section { padding: 28px 32px 20px; }
@@ -534,6 +544,21 @@
   .stage-card:focus-visible, .ref-card:focus-visible, .mf-stage:focus-visible,
   .save-reminder:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Honour OS-level reduced-motion preference. The particle flows, milestone
+     pop-ins, and transitions run continuously or draw attention — both categories
+     are the WCAG 2.3.3 targets. Keep a 0.01ms duration so layout-impacting
+     transitions still fire a tick and state settles, but nothing actually animates.
+     The playback animation is gated separately in JS (see useAnimation effect). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .particle, .particle-fail { display: none !important; }
+  }
 
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg2); padding: 8px 20px; border-radius: var(--radius); font-size: 12px; font-weight: 500; z-index: 100; box-shadow: var(--shadow-lg); }
 
@@ -2250,6 +2275,7 @@ function App() {
 
   return (
     <div className="app">
+      <a className="skip-link" href="#trialsim-main">Skip to main content</a>
       <AIMRHeader />
       <div className="mobile-notice"><strong>Best on desktop.</strong> Trialsim is optimized for larger screens. Some features may be hard to use on mobile.</div>
       {/* ── App Toolbar ── */}
@@ -2391,11 +2417,11 @@ function App() {
       </div>
 
       {/* ── Tab Bar ── */}
-      <div className="tab-bar">
-        <button className={`tab-btn tab-tutorial ${activeTab === 'tutorial' ? 'active' : ''}`} onClick={() => setActiveTab('tutorial')}>Guide</button>
-        <button className={`tab-btn ${activeTab === 'study' ? 'active' : ''}`} onClick={() => setActiveTab('study')}>Study View <span className="tab-sub">Source mix & funnel</span></button>
-        <button className={`tab-btn ${activeTab === 'site' ? 'active' : ''}`} onClick={() => setActiveTab('site')}>Multi-Site <span className="tab-sub">Site portfolio</span></button>
-        <button className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')}>Single Site <span className="tab-sub">Startup & pipeline</span></button>
+      <div className="tab-bar" role="tablist" aria-label="Simulation views">
+        <button role="tab" aria-selected={activeTab === 'tutorial'} aria-controls="trialsim-main" className={`tab-btn tab-tutorial ${activeTab === 'tutorial' ? 'active' : ''}`} onClick={() => setActiveTab('tutorial')}>Guide</button>
+        <button role="tab" aria-selected={activeTab === 'study'} aria-controls="trialsim-main" className={`tab-btn ${activeTab === 'study' ? 'active' : ''}`} onClick={() => setActiveTab('study')}>Study View <span className="tab-sub">Source mix & funnel</span></button>
+        <button role="tab" aria-selected={activeTab === 'site'} aria-controls="trialsim-main" className={`tab-btn ${activeTab === 'site' ? 'active' : ''}`} onClick={() => setActiveTab('site')}>Multi-Site <span className="tab-sub">Site portfolio</span></button>
+        <button role="tab" aria-selected={activeTab === 'single'} aria-controls="trialsim-main" className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')}>Single Site <span className="tab-sub">Startup & pipeline</span></button>
         {['study','site','single'].includes(activeTab) && !showWelcome[activeTab] && (
           <div className="tab-bar-reopen">
             <button className="reopen-btn" title="Show the welcome banner for this view" aria-label="Re-open welcome banner" onClick={() => setShowWelcome(p => ({ ...p, [activeTab]: true }))}>?</button>
@@ -2406,7 +2432,7 @@ function App() {
       {isPlaying && animFrame !== null && (
         <div className="playback-bar"><div className="playback-fill" style={{ width: `${(animFrame / (currentTimeline.length || 1)) * 100}%` }} /></div>
       )}
-      <div className="main-scroll">
+      <main id="trialsim-main" className="main-scroll" tabIndex={-1}>
         {/* ═══ TUTORIAL ═══ */}
         {activeTab === 'tutorial' && (
           <div className="tutorial-page">
@@ -2693,6 +2719,7 @@ function App() {
                   </div>
                 )}
                 {compareOn && prevResult && snapshotTab === activeTab && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
+                <div role="img" aria-label={`Study enrollment timeline. ${result.weeksToTarget ? `Target of ${targetN} patients reached at week ${result.weeksToTarget}.` : `Target of ${targetN} not reached in 104 weeks — ${result.totalEnrolled} enrolled.`}${monteCarloResult ? ` Monte Carlo uncertainty: P10 ${monteCarloResult.prob.p10 > 104 ? 'beyond week 104' : `week ${monteCarloResult.prob.p10}`}, P50 ${monteCarloResult.prob.p50 > 104 ? 'beyond week 104' : `week ${monteCarloResult.prob.p50}`}, P90 ${monteCarloResult.prob.p90 > 104 ? 'beyond week 104' : `week ${monteCarloResult.prob.p90}`}.` : ''}`}>
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
@@ -2709,6 +2736,7 @@ function App() {
                     {actualsData && actualsData.mode === 'aggregate' && actualsData.values && <Area type="monotone" dataKey="actual" data={actualsData.values.map((v, i) => ({ week: i + 1, actual: v }))} stroke="#2d7a50" strokeWidth={2.5} fill="none" dot={{ r: 3, fill: '#2d7a50' }} isAnimationActive={false} />}
                   </AreaChart>
                 </ResponsiveContainer>
+                </div>
               </div>
               <div className="result-card">
                 <h4>Stage Utilization</h4>
@@ -2801,6 +2829,7 @@ function App() {
                   </div>
                 )}
                 {compareOn && prevResult && snapshotTab === activeTab && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
+                <div role="img" aria-label={`Multi-site enrollment timeline. ${siteResult.weeksToTarget ? `Target of ${siteTargetN} patients reached at week ${siteResult.weeksToTarget}.` : `Target of ${siteTargetN} not reached in 104 weeks — ${siteResult.totalEnrolled} enrolled.`}${siteMC ? ` Monte Carlo uncertainty: P10 ${siteMC.prob.p10 > 104 ? 'beyond week 104' : `week ${siteMC.prob.p10}`}, P50 ${siteMC.prob.p50 > 104 ? 'beyond week 104' : `week ${siteMC.prob.p50}`}, P90 ${siteMC.prob.p90 > 104 ? 'beyond week 104' : `week ${siteMC.prob.p90}`}.` : ''}`}>
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
@@ -2816,6 +2845,7 @@ function App() {
                     <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill={showMonteCarlo && siteMC ? 'none' : 'rgba(176,78,48,0.12)'} strokeWidth={2.5} dot={false} isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
+                </div>
               </div>
               <div className="result-card">
                 <h4>Site Contribution (Top {Math.min(25, waterfallData.length)})</h4>
@@ -2941,6 +2971,7 @@ function App() {
                   </div>
                 )}
                 {compareOn && prevResult && snapshotTab === activeTab && <div className="cmp-legend"><div className="cmp-leg"><div className="cmp-line" style={{ background: 'var(--accent)' }} /> Current</div><div className="cmp-leg"><div className="cmp-dash" /> {snapshotName || 'Baseline'}</div></div>}
+                <div role="img" aria-label={`Single-site enrollment timeline. First Patient In at week ${ssFPI}. ${ssResult.weeksToTarget ? `Site target of ${ssTargetN} patients reached at week ${ssResult.weeksToTarget}.` : `Target of ${ssTargetN} not reached in 104 weeks — ${ssResult.totalEnrolled} enrolled.`}${ssMC ? ` Monte Carlo uncertainty: P10 ${ssMC.prob.p10 > 104 ? 'beyond week 104' : `week ${ssMC.prob.p10}`}, P50 ${ssMC.prob.p50 > 104 ? 'beyond week 104' : `week ${ssMC.prob.p50}`}, P90 ${ssMC.prob.p90 > 104 ? 'beyond week 104' : `week ${ssMC.prob.p90}`}.` : ''}`}>
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={visTimeline} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
@@ -2957,6 +2988,7 @@ function App() {
                     <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill={showMonteCarlo && ssMC ? 'none' : 'rgba(176,78,48,0.12)'} strokeWidth={2.5} dot={false} isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
+                </div>
               </div>
               <div className="result-card">
                 <h4>Startup Summary</h4>
@@ -2979,7 +3011,7 @@ function App() {
         </>}
 
         <AIMRFooter />
-      </div>
+      </main>
 
       {/* Config overlay (study view) */}
       {activeTab === 'study' && selObj && <ConfigWrapper onClose={() => setSel(null)}><ConfigPanel node={selObj} nodeType={sel.type}
