@@ -152,7 +152,7 @@
   .cfg-group input[type="range"] { flex: 1; accent-color: var(--accent); height: 4px; }
   .cfg-group .val { font-size: 13px; font-weight: 600; min-width: 45px; text-align: right; color: var(--text); }
   .cfg-group input[type="text"] { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; }
-  .cfg-group input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(176,78,48,0.1); }
+  .cfg-group input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
   .cfg-group .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
   .cfg-group .toggle-row input { accent-color: var(--accent); }
   .cfg-delete { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid rgba(166,61,52,0.2); border-radius: var(--radius); background: rgba(166,61,52,0.04); color: var(--red); font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit; }
@@ -220,7 +220,7 @@
   .site-table input[type="text"], .site-table input[type="number"] {
     width: 100%; padding: 3px 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--text); font-size: 12px; font-family: inherit;
   }
-  .site-table input:focus { border-color: var(--accent); background: var(--bg2); outline: none; }
+  .site-table input:focus-visible { border-color: var(--accent); background: var(--bg2); outline: 2px solid var(--accent); outline-offset: 1px; }
   .site-table .name-cell { min-width: 150px; }
   .site-table .num-cell { width: 80px; text-align: center; }
   .site-table .num-cell input { text-align: center; }
@@ -1765,6 +1765,9 @@ function App() {
     <h1>Scenario Report</h1>
     <div class="sub">${esc(viewName)}${subtitleParts.length ? ' — ' + subtitleParts.map(esc).join(' · ') : ''}</div>
     <div class="meta">Generated ${new Date().toLocaleString()} · trialsim.aimronline.org</div>
+    <div style="margin-top:14pt;padding:8pt 12pt;background:#fdf4e7;border-left:3px solid #8a6019;font-size:9.5pt;color:#5c5650;line-height:1.5;">
+      <strong style="color:#5c5650;">Planning use only.</strong> Projections generated from user-supplied inputs and cited industry benchmarks. Not a regulatory submission, IND/IDE deliverable, or contractual feasibility commitment. Calibrate against observed local data before any commitment.
+    </div>
   </div>
 
   <h2>Summary</h2>
@@ -2093,9 +2096,10 @@ function App() {
   if (activeTab === 'home') {
     return (
       <div className="home">
+        <a className="skip-link" href="#trialsim-main">Skip to main content</a>
         <AIMRHeader />
         {/* Hero */}
-        <div className="home-hero">
+        <main id="trialsim-main" className="home-hero" tabIndex={-1}>
           <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: 14, justifyContent: 'center' }}>
             Trialsim
             {/* AIMR-standard beta pill — solid purple fill reads well on dark hero. */}
@@ -2111,7 +2115,7 @@ function App() {
           </p>
           <button className="hero-cta" onClick={() => setActiveTab('study')}>Launch Simulator &rarr;</button>
           <button className="hero-sec" onClick={() => { document.getElementById('home-how').scrollIntoView({ behavior: 'smooth' }); }}>See How It Works</button>
-        </div>
+        </main>
 
         {/* Stats bar */}
         <div className="home-stats-bar">
@@ -2263,15 +2267,21 @@ function App() {
   // would break layout (buttons reset margin/padding/display). kbdBtn keeps them
   // as <div>s but makes them real tab stops and activates on Enter/Space — the
   // WCAG-recognised alternative when visual buttons can't be semantic buttons.
-  const kbdBtn = (onClick, opts = {}) => ({
-    role: 'button',
-    tabIndex: opts.disabled ? -1 : 0,
-    onClick,
-    onKeyDown: e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); }
-    },
-    ...opts,
-  });
+  const kbdBtn = (onClick, opts = {}) => {
+    // disabled is local-only: it controls tabIndex and blocks the handler. Don't
+    // forward it to the element (HTML <div disabled> is invalid and has no effect).
+    const { disabled, ...rest } = opts;
+    return {
+      role: 'button',
+      tabIndex: disabled ? -1 : 0,
+      onClick: disabled ? undefined : onClick,
+      onKeyDown: disabled ? undefined : e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); }
+      },
+      'aria-disabled': disabled || undefined,
+      ...rest,
+    };
+  };
 
   return (
     <div className="app">
@@ -2355,11 +2365,16 @@ function App() {
           {activeTab !== 'home' && activeTab !== 'tutorial' && <>
             <button className="btn btn-ghost" onClick={undo} disabled={!historyRef.current.length} title={historyRef.current.length ? `Undo: ${historyRef.current[historyRef.current.length - 1].label} (\u2318Z)` : 'Nothing to undo'} style={{ opacity: historyRef.current.length ? 1 : 0.35, fontSize: 11 }}>{'\u21B6'} Undo</button>
             <button className="btn btn-ghost" onClick={redo} disabled={!futureRef.current.length} title={futureRef.current.length ? `Redo: ${futureRef.current[futureRef.current.length - 1].label} (\u21E7\u2318Z)` : 'Nothing to redo'} style={{ opacity: futureRef.current.length ? 1 : 0.35, fontSize: 11 }}>{'\u21B7'} Redo</button>
-            {(() => {
-              const calibCount = activeTab === 'site' ? sites.filter(s => s.calibrated).length
-                : activeTab === 'study' ? sources.filter(s => s.calibrated).length
-                : activeTab === 'single' && actualsData ? 1 : 0;
-              const defaultMode = activeTab === 'site' ? 'sites' : activeTab === 'study' ? 'sources' : 'aggregate';
+            {/* Calibrate is only wired for Study (per-source) and Multi-Site (per-site).
+                Single-Site aggregate calibration previously fit a multiplier that was
+                never applied to the site's referrals or funnel — surfaced a lying
+                "Calibrated (1)" badge. Hiding on Single until the SS chart wires
+                through actualsData.fitMultiplier. */}
+            {(activeTab === 'study' || activeTab === 'site') && (() => {
+              const calibCount = activeTab === 'site'
+                ? sites.filter(s => s.calibrated).length
+                : sources.filter(s => s.calibrated).length;
+              const defaultMode = activeTab === 'site' ? 'sites' : 'sources';
               return (
                 <button
                   className="btn"
@@ -2416,12 +2431,18 @@ function App() {
         </div>
       </div>
 
-      {/* ── Tab Bar ── */}
-      <div className="tab-bar" role="tablist" aria-label="Simulation views">
-        <button role="tab" aria-selected={activeTab === 'tutorial'} aria-controls="trialsim-main" className={`tab-btn tab-tutorial ${activeTab === 'tutorial' ? 'active' : ''}`} onClick={() => setActiveTab('tutorial')}>Guide</button>
-        <button role="tab" aria-selected={activeTab === 'study'} aria-controls="trialsim-main" className={`tab-btn ${activeTab === 'study' ? 'active' : ''}`} onClick={() => setActiveTab('study')}>Study View <span className="tab-sub">Source mix & funnel</span></button>
-        <button role="tab" aria-selected={activeTab === 'site'} aria-controls="trialsim-main" className={`tab-btn ${activeTab === 'site' ? 'active' : ''}`} onClick={() => setActiveTab('site')}>Multi-Site <span className="tab-sub">Site portfolio</span></button>
-        <button role="tab" aria-selected={activeTab === 'single'} aria-controls="trialsim-main" className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')}>Single Site <span className="tab-sub">Startup & pipeline</span></button>
+      {/* ── Tab Bar ──
+          We had role="tablist"/role="tab" + aria-controls pointing at <main>, but
+          <main> is a landmark, not a role="tabpanel". The pattern was also missing
+          arrow-key navigation (APG requires Left/Right between tabs in a tablist).
+          Rather than ship a partial tablist, we revert to plain <button>s — still
+          keyboard-reachable, still labeled, just no tablist semantics. Revisit when
+          we can ship the full APG tablist (roving tabIndex + arrow nav + tabpanels). */}
+      <div className="tab-bar">
+        <button className={`tab-btn tab-tutorial ${activeTab === 'tutorial' ? 'active' : ''}`} aria-current={activeTab === 'tutorial' ? 'page' : undefined} onClick={() => setActiveTab('tutorial')}>Guide</button>
+        <button className={`tab-btn ${activeTab === 'study' ? 'active' : ''}`} aria-current={activeTab === 'study' ? 'page' : undefined} onClick={() => setActiveTab('study')}>Study View <span className="tab-sub">Source mix & funnel</span></button>
+        <button className={`tab-btn ${activeTab === 'site' ? 'active' : ''}`} aria-current={activeTab === 'site' ? 'page' : undefined} onClick={() => setActiveTab('site')}>Multi-Site <span className="tab-sub">Site portfolio</span></button>
+        <button className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`} aria-current={activeTab === 'single' ? 'page' : undefined} onClick={() => setActiveTab('single')}>Single Site <span className="tab-sub">Startup & pipeline</span></button>
         {['study','site','single'].includes(activeTab) && !showWelcome[activeTab] && (
           <div className="tab-bar-reopen">
             <button className="reopen-btn" title="Show the welcome banner for this view" aria-label="Re-open welcome banner" onClick={() => setShowWelcome(p => ({ ...p, [activeTab]: true }))}>?</button>
