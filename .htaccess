@@ -1,0 +1,18 @@
+# Security response headers for trialsim.aimronline.org
+# Complements the <meta> CSP in trialsim.html. Meta-CSP can't enforce
+# frame-ancestors/base-uri (those only work as HTTP response headers),
+# so we set them here at the IONOS Apache layer.
+
+<IfModule mod_headers.c>
+    # Clickjacking protection — no one may iframe this page.
+    Header always set X-Frame-Options "DENY"
+
+    # Modern equivalent; also blocks <object>/<embed> framing.
+    Header always set Content-Security-Policy "frame-ancestors 'none'"
+
+    # Prevent MIME-type sniffing.
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Don't leak full URL on outbound links; still send origin for same-origin.
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
