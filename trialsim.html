@@ -1631,6 +1631,53 @@ function App() {
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
     window.location.reload();
   };
+  // Full local-data wipe. Reset only touches STORAGE_KEY (current scenario
+  // autosave); this clears the saved Scenario Library, dismissed welcome
+  // banners, the mobile-gate opt-out, and any other trialsim_* keys a future
+  // version might set. Named "Clear all saved data" rather than "Clear sample
+  // data" because it's the user's data, not ours. Lists exactly what's being
+  // cleared in the confirm so the user knows the scope. Nothing leaves the
+  // browser (Plausible is cookieless with no per-visitor state).
+  const clearAllData = () => {
+    // Enumerate trialsim_* keys so the confirm is honest about counts.
+    let scenarioCount = 0, autosaveName = null, welcomeDismissed = 0, mobileOverride = false;
+    try {
+      const scen = JSON.parse(localStorage.getItem(SCENARIO_KEY) || '[]');
+      scenarioCount = Array.isArray(scen) ? scen.length : 0;
+    } catch {}
+    try {
+      const auto = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (auto && auto.template) {
+        const tpl = TEMPLATES[auto.template]?.name || auto.template;
+        autosaveName = `${tpl}${auto.activeTab && auto.activeTab !== 'home' ? ' — ' + auto.activeTab + ' view' : ''}`;
+      }
+    } catch {}
+    try {
+      const w = JSON.parse(localStorage.getItem(WELCOME_KEY) || 'null');
+      if (w) welcomeDismissed = ['study','site','single'].filter(k => w[k] === false).length;
+    } catch {}
+    try { mobileOverride = localStorage.getItem(MOBILE_GATE_KEY) === '1'; } catch {}
+
+    const lines = [];
+    if (autosaveName) lines.push(`• Current autosave (${autosaveName})`);
+    if (scenarioCount > 0) lines.push(`• ${scenarioCount} saved scenario${scenarioCount === 1 ? '' : 's'} in the Library`);
+    if (welcomeDismissed > 0) lines.push(`• ${welcomeDismissed} dismissed welcome banner${welcomeDismissed === 1 ? '' : 's'}`);
+    if (mobileOverride) lines.push('• Mobile "continue anyway" flag');
+    if (!lines.length) { showToast('Nothing to clear \u2014 no Trialsim data in this browser.'); return; }
+    const msg = `Clear all Trialsim data from this browser?\n\n${lines.join('\n')}\n\nPermanent. Cannot be undone. Plausible analytics are cookieless, so nothing to clear there.`;
+    if (!confirm(msg)) return;
+    try {
+      // Belt-and-suspenders: scan for any other trialsim_* keys a future
+      // version might have added that aren't in our named-const list.
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('trialsim_')) keys.push(k);
+      }
+      keys.forEach(k => localStorage.removeItem(k));
+    } catch {}
+    window.location.reload();
+  };
   // Export current view as PNG (uses html2canvas)
   const exportPNG = async () => {
     if (typeof html2canvas === 'undefined') { showToast('Export library not loaded'); return; }
@@ -2431,7 +2478,8 @@ function App() {
                     { label: 'Export config (JSON)', action: () => { exportConfig(); setHasEdited(false); }, title: 'Download full configuration' },
                     { label: 'Import config (JSON)', action: importConfig, title: 'Load a previously exported configuration' },
                     { sep: true },
-                    { label: 'Reset to defaults', action: resetAll, danger: true, title: 'Discard all changes and reload' },
+                    { label: 'Reset to defaults', action: resetAll, danger: true, title: 'Discard changes to the current scenario and reload' },
+                    { label: 'Clear all saved data\u2026', action: clearAllData, danger: true, title: 'Remove the current autosave, saved scenarios, and dismissed banners from this browser' },
                   ].map((item, i) => item.sep ? <div key={i} style={{ height: 1, background: 'var(--bg3)', margin: '4px 6px' }} /> : (
                     <button key={i} onClick={() => { setMoreMenuOpen(false); item.action(); }} title={item.title} style={{
                       padding: '7px 12px', fontSize: 12, fontWeight: 500, textAlign: 'left',
