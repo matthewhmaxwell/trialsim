@@ -1007,6 +1007,20 @@ function SiteTable({ sites, onChange, onAdd, onDelete, onDrillIn }) {
     dropoutRate: sites.length > 0 ? Math.round(sites.reduce((a, s) => a + s.dropoutRate, 0) / sites.length) : 0,
   };
 
+  if (sites.length === 0) {
+    return (
+      <div className="site-table-wrap" style={{ padding: 24 }}>
+        <div style={{ fontSize: 12, color: 'var(--text2)', padding: 20, border: '1px dashed var(--border)', borderRadius: 'var(--radius)', background: 'var(--bg2)', lineHeight: 1.6, textAlign: 'center' }}>
+          <strong style={{ color: 'var(--text)', display: 'block', marginBottom: 6, fontSize: 13 }}>Empty site portfolio</strong>
+          Add a site below, or switch to a scenario preset (Small / Medium / Large) to load sample sites. You can also import your feasibility list as CSV via the <strong>Import</strong> button above.
+          <div style={{ marginTop: 14 }}>
+            <button className="btn btn-primary" onClick={onAdd}>+ Add site</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="site-table-wrap">
       <table className="site-table">
@@ -2701,6 +2715,11 @@ function App() {
               <ParticleFlow isPlaying={isPlaying && activeTab === 'study'} stageCount={stages.length} sourceCount={sources.filter(s => s.active !== false).length} />
               <div className="source-stack">
                 <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 4 }}>Sources</div>
+                {sources.length === 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)', padding: '12px 10px', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', background: 'var(--bg2)', lineHeight: 1.5 }}>
+                    No sources yet. Add one from the catalog above, or click <strong>+ Custom</strong> to model your own recruitment channel.
+                  </div>
+                )}
                 {sources.map(s => (
                   <div key={s.id} className={`source-card ${sel?.id === s.id ? 'selected' : ''} ${s.active === false ? 'inactive' : ''}`} aria-pressed={sel?.id === s.id} aria-label={`Configure source ${s.name}`} {...kbdBtn(() => setSel({ id: s.id, type: 'source' }))} title={s.category === 'agentic' ? 'Scenario assumption — not observed benchmark. Click for source.' : undefined}>
                     <span className="cat-dot" style={{ background: CAT_COLORS[s.category] }} aria-hidden="true" title={`${CAT_LABELS[s.category]} source`} /><span className="sc-name">{s.name}</span>
@@ -2991,6 +3010,11 @@ function App() {
               <div style={{ flex: 1, minWidth: 300 }}>
                 <h4 style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text3)', marginBottom: 10, fontWeight: 600 }}>Referral Sources</h4>
                 <div className="ref-sources">
+                  {ssReferrals.length === 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', padding: '10px 12px', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', background: 'var(--bg2)', lineHeight: 1.5, flex: 1 }}>
+                      No referral sources. Click <strong>+ Add</strong> to start modeling inflow.
+                    </div>
+                  )}
                   {ssReferrals.map((r, i) => (
                     <div key={r.id} className={`ref-card ${ssSel?.id === r.id ? 'selected' : ''}`} aria-pressed={ssSel?.id === r.id} aria-label={`Configure referral source ${r.name}`} {...kbdBtn(() => setSsSel({ id: r.id, type: 'referral' }))} style={{ cursor: 'pointer' }}>
                       <div>

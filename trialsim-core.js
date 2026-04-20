@@ -97,6 +97,15 @@ const TEMPLATES = {
       { id: 's4', name: 'Remote Screen', conversionRate: 55, throughputPerWeek: 120, avgDurationDays: 10, dropoutRate: 3 },
       { id: 'terminal', name: 'Randomized', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
     ] },
+  // Blank — no sources, minimal funnel. Gives a clean slate for users who
+  // want to paste their own feasibility data rather than start from the
+  // pre-populated defaults. Terminal stage must stay for the sim to run.
+  blank: { name: 'Blank — start from scratch', desc: 'No sources, minimal funnel. Add your own.', targetN: 100, numSites: 0,
+    sources: [],
+    stages: [
+      { id: 's1', name: 'Identified', conversionRate: 50, throughputPerWeek: 100, avgDurationDays: 3, dropoutRate: 2 },
+      { id: 'terminal', name: 'Enrolled', conversionRate: 100, throughputPerWeek: 999, avgDurationDays: 0, dropoutRate: 0 },
+    ] },
 };
 
 // ─── Therapeutic Area Presets ─────────────────────────────────────────
@@ -291,6 +300,9 @@ const SITE_SCENARIOS = {
   small: { name: 'Small (Phase 1)', desc: '6 sites, staggered over 4 weeks', generate: () => generateSites(6, [0.5, 2.0], 4) },
   medium: { name: 'Medium (Phase 2/3)', desc: '40 sites, staggered over 8 weeks', generate: () => generateSites(40, [0.5, 4.0], 8) },
   large: { name: 'Large (Global)', desc: '80 sites, staggered over 12 weeks', generate: () => generateSites(80, [0.3, 3.0], 12) },
+  // Blank — no sites. For users pasting their own feasibility list via CSV
+  // or building up a small portfolio one site at a time.
+  blank: { name: 'Blank — no sites', desc: 'Empty portfolio. Import CSV or add sites manually.', generate: () => [] },
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -463,6 +475,19 @@ const SS_TEMPLATES = {
       { id: 'ft', name: 'Randomized', conversionRate: 100, durationDays: 0, dropoutRate: 0 },
     ],
     maxConcurrent: 25, targetN: 20,
+  },
+  // Blank — empty identity, zero startup / referrals, minimal funnel. Lets
+  // users build up a custom single-site config without deleting the academic
+  // / community / research presets' pre-populated milestones one by one.
+  blank: { name: 'Blank — start from scratch', desc: 'Empty startup, no referrals, minimal funnel.',
+    identity: { name: '', piName: '', coordinatorCount: 1 },
+    startup: { regulatory: [], legal: [], operational: [] },
+    referrals: [],
+    funnel: [
+      { id: 'f1', name: 'Pre-screened', conversionRate: 60, durationDays: 5, dropoutRate: 2 },
+      { id: 'ft', name: 'Randomized', conversionRate: 100, durationDays: 0, dropoutRate: 0 },
+    ],
+    maxConcurrent: 10, targetN: 10,
   },
 };
 
