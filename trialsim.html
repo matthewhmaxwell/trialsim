@@ -463,8 +463,11 @@
   .home-hero .hero-badge { display: inline-flex; align-items: center; padding: 4px 14px; border-radius: 20px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); font-size: 11px; font-weight: 500; margin-bottom: 20px; letter-spacing: 0.3px; }
   .home-hero h1 { font-size: 42px; font-weight: 700; letter-spacing: -1px; margin-bottom: 12px; }
   .home-hero .hero-sub { font-size: 16px; opacity: 0.8; max-width: 600px; margin: 0 auto 32px; line-height: 1.6; font-weight: 400; }
-  .home-hero .hero-cta { display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; border: none; cursor: pointer; font-family: inherit; transition: background 0.15s; box-shadow: 0 4px 16px rgba(176,78,48,0.3); }
-  .home-hero .hero-cta:hover { background: var(--accent2); }
+  /* Unscoped so the bottom-of-page CTA ("Ready to simulate?" → Launch Simulator)
+     gets the same styled button as the hero. Previously scoped to .home-hero
+     only, which left the duplicate CTA rendering as a browser-default button. */
+  .hero-cta { display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; border: none; cursor: pointer; font-family: inherit; transition: background 0.15s; box-shadow: 0 4px 16px rgba(176,78,48,0.3); }
+  .hero-cta:hover { background: var(--accent2); }
   .home-hero .hero-sec { display: inline-flex; align-items: center; gap: 6px; padding: 12px 24px; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.8); font-size: 13px; font-weight: 500; border: 1px solid rgba(255,255,255,0.25); cursor: pointer; font-family: inherit; margin-left: 12px; transition: all 0.15s; }
   .home-hero .hero-sec:hover { background: rgba(255,255,255,0.08); color: #fff; }
   .home-stats-bar { display: flex; justify-content: center; gap: 40px; padding: 24px 40px; background: var(--bg2); border-bottom: 1px solid var(--border); }
@@ -2269,7 +2272,16 @@ function App() {
             Feedback welcome &mdash; look for the feedback button in the bottom-right corner
           </p>
           <button className="hero-cta" onClick={() => setActiveTab('study')}>Launch Simulator &rarr;</button>
-          <button className="hero-sec" onClick={() => { document.getElementById('home-how').scrollIntoView({ behavior: 'smooth' }); }}>See How It Works</button>
+          <button className="hero-sec" onClick={() => {
+            // .home is its own scroll container (height: 100vh; overflow-y: auto).
+            // Element.scrollIntoView walked the wrong scroll root and left
+            // the page stuck at the top. Explicit scrollTo on the container
+            // with the target's offsetTop is reliable.
+            const container = document.querySelector('.home');
+            const el = document.getElementById('home-how');
+            if (container && el) container.scrollTo({ top: el.offsetTop, behavior: 'smooth' });
+            else if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}>See How It Works</button>
         </main>
 
         {/* Stats bar */}
