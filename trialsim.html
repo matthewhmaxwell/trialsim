@@ -581,6 +581,13 @@
   .snap-footer { padding: 12px 20px; border-top: 1px solid var(--bg3); text-align: right; }
   /* footer replaced by AIMR standard footer */
 </style>
+<!-- feedback.js is intentionally NOT SRI-pinned. It's first-party (same IONOS
+     account as trialsim.aimronline.org), shared across all AIMR subdomain tools,
+     and updates independently of trialsim releases. Pinning would couple every
+     feedback.js update to a trialsim redeploy without raising the security bar:
+     if the IONOS account is compromised, the attacker can replace index.html
+     (which defines the SRI) alongside feedback.js, and SRI can't self-protect.
+     The correct hardening here is per-subdomain SFTP accounts, not client SRI. -->
 <script src="https://aimronline.org/feedback.js"></script>
 <!-- Pure-JS simulation core: loaded before Babel so the React code can use globals (simulate, simulateSites, montecarlo, ASSUMPTIONS, etc.). Also consumed directly by tests.html. -->
 <script src="trialsim-core.js"></script>
@@ -1006,7 +1013,16 @@ function SiteTable({ sites, onChange, onAdd, onDelete, onDrillIn }) {
         <thead>
           <tr>
             {cols.map(c => (
-              <th key={c.key} className={`${c.cls} ${sortKey === c.key ? 'sorted' : ''}`} onClick={() => handleSort(c.key)}>
+              <th
+                key={c.key}
+                className={`${c.cls} ${sortKey === c.key ? 'sorted' : ''}`}
+                tabIndex={0}
+                role="columnheader"
+                aria-sort={sortKey === c.key ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'}
+                onClick={() => handleSort(c.key)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort(c.key); } }}
+                style={{ cursor: 'pointer' }}
+              >
                 {c.label} {c.cite && <Cited id={c.cite} compact />} {sortKey === c.key ? (sortDir > 0 ? '\u2191' : '\u2193') : ''}
               </th>
             ))}
@@ -1606,8 +1622,8 @@ function App() {
       // The share URL encodes the full config, including site names and costs.
       // Warn on every copy — Slack / Teams / email clients truncate past ~2000
       // chars, and some sponsors consider site + cost data confidential.
-      if (url.length > 2000) showToast(`Link copied — contains full config (${url.length.toLocaleString()} chars, including site names + costs). Long links may be truncated in chat clients; don't paste in public channels if sites are confidential.`, 6500);
-      else showToast('Link copied — contains full config. Don\u2019t paste in public channels if sites are confidential.', 4500);
+      if (url.length > 2000) showToast(`Link copied (${url.length.toLocaleString()} chars). May be truncated in chat clients. Contains site names + costs — don\u2019t share in public channels.`, 5500);
+      else showToast('Link copied. Contains site names + costs — don\u2019t share in public channels.', 4000);
     } catch { showToast('Could not create share link'); }
   };
   const resetAll = () => {
@@ -2290,7 +2306,7 @@ function App() {
       <div className="mobile-notice"><strong>Best on desktop.</strong> Trialsim is optimized for larger screens. Some features may be hard to use on mobile.</div>
       {/* ── App Toolbar ── */}
       <div className="topbar">
-        <div className="topbar-brand"><h1 style={{ cursor: 'pointer' }} onClick={() => setActiveTab('home')}>Trialsim</h1><span className="beta-badge">Beta</span></div>
+        <div className="topbar-brand"><h1 style={{ cursor: 'pointer' }} tabIndex={0} role="link" aria-label="Trialsim — return to home page" onClick={() => setActiveTab('home')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('home'); } }}>Trialsim</h1><span className="beta-badge">Beta</span></div>
         <div className="topbar-sep" />
         <div className="topbar-controls">
           {activeTab === 'tutorial' && <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Getting started with Trialsim</span>}
@@ -2398,7 +2414,9 @@ function App() {
           </>}
           {activeTab !== 'tutorial' && <>
           <div className="topbar-sep" />
-          {hasEdited && <div className="save-reminder" {...kbdBtn(exportConfig)} style={{ cursor: 'pointer' }}>Unsaved changes &middot; Export to save</div>}
+          {/* save-reminder chip removed — hasEdited is always false since v0.4;
+              autosave + Save Scenario make the old "Unsaved changes · Export" chip
+              not just dead but actively misleading. */}
           <button className="btn btn-primary" onClick={exportReport} title="Generate a branded scenario report with charts, stats, and sourced assumptions — save as PDF or share with colleagues" style={{ fontSize: 10 }}>Report</button>
           <div style={{ position: 'relative' }}>
             <button className="btn btn-ghost" onClick={() => setMoreMenuOpen(v => !v)} title="More actions" aria-label="More actions" aria-haspopup="menu" aria-expanded={moreMenuOpen}>{'\u22EF'}</button>
@@ -2601,7 +2619,7 @@ function App() {
                 <div className="wb-title">Study View: Model your recruitment strategy</div>
                 <div className="wb-desc">Pick a template, apply a therapeutic-area preset, then click any source or stage to edit. The <strong>P10–P90 uncertainty fan</strong> (200 Monte Carlo runs) is on by default above the chart; the <strong>ⓘ</strong> markers cite every default. Hit <strong>Report</strong> for a branded PDF, or <strong>+ Actuals</strong> to refit from observed enrollment.</div>
               </div>
-              <button className="wb-close" onClick={() => setShowWelcome(p => ({ ...p, study: false }))}>&times;</button>
+              <button className="wb-close" aria-label="Dismiss welcome banner" onClick={() => setShowWelcome(p => ({ ...p, study: false }))}>&times;</button>
             </div>
             <div className="template-cards">
               {Object.entries(TEMPLATES).map(([k, v]) => (
@@ -2658,7 +2676,7 @@ function App() {
                         {!isT && <><div className="sc-stats"><span>{stage.conversionRate}% conv</span><span>{stage.throughputPerWeek}/wk</span></div><div className="sc-stats2"><span>{stage.avgDurationDays}d</span>{stage.dropoutRate > 0 && <span>{stage.dropoutRate}% drop</span>}</div><div className="util-bar"><div className="util-fill" style={{ width: `${Math.min(util * 100, 200)}%`, background: uc }} /></div></>}
                         {isT && <div className="sc-stats" style={{ color: 'var(--green)' }}>Target endpoint</div>}
                         {!isT && stage.clippedConv && (
-                          <div className="sc-clipped" title={`TA × baseline would give ${stage.clippedConv}% conversion — clamped at 100%. Effective multiplier is lower than the preset nominal.`}>
+                          <div className="sc-clipped" title={`This TA preset would push conversion to ${stage.clippedConv}% at this stage. We've capped it at 100%, so the TA's effective boost here is smaller than its label implies.`}>
                             &#9888; clipped at 100%
                           </div>
                         )}
@@ -2707,6 +2725,12 @@ function App() {
               );
             })()}
             <div className="results-grid">
+              {(() => {
+                // Aggregate actuals live on the Study-View chart. Per-site / per-source
+                // calibration state is surfaced elsewhere (green dots on entity rows,
+                // Calibrated (N) pill on the toolbar). Deref .values only through this alias.
+                const aggActuals = actualsData && actualsData.mode === 'aggregate' ? actualsData : null;
+                return (
               <div className="result-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <h4>Enrollment Timeline</h4>
@@ -2716,17 +2740,17 @@ function App() {
                       <span>Uncertainty (P10-P90)</span>
                     </label>
                     <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => setShowActualsPanel(true)} title="Paste week-by-week actual enrollment to refit the forecast">
-                      {actualsData && actualsData.mode === 'aggregate' ? `Actuals: ${actualsData.values.length} wks` : '+ Actuals'}
+                      {aggActuals ? `Actuals: ${aggActuals.values.length} wks` : '+ Actuals'}
                     </button>
-                    {actualsData && actualsData.mode === 'aggregate' && <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 6px', color: 'var(--red)' }} onClick={clearActuals}>&times;</button>}
+                    {aggActuals && <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 6px', color: 'var(--red)' }} onClick={clearActuals}>&times;</button>}
                   </div>
                 </div>
-                {actualsData && actualsData.mode === 'aggregate' && actualsData.values && (
+                {aggActuals && aggActuals.values && (
                   <div className="mc-summary" style={{ borderColor: 'var(--accent)' }}>
-                    <span><strong>Fit:</strong> {actualsData.fitMultiplier}x modeled</span>
-                    <span><strong>Observed:</strong> {actualsData.values[actualsData.values.length - 1]} enrolled in {actualsData.values.length} wks</span>
-                    <span style={{ color: actualsData.fitMultiplier < 0.8 ? 'var(--red)' : actualsData.fitMultiplier > 1.2 ? 'var(--green)' : 'var(--text2)' }}>
-                      {actualsData.fitMultiplier < 0.8 ? 'Behind forecast' : actualsData.fitMultiplier > 1.2 ? 'Ahead of forecast' : 'On forecast'}
+                    <span><strong>Fit:</strong> {aggActuals.fitMultiplier}x modeled</span>
+                    <span><strong>Observed:</strong> {aggActuals.values[aggActuals.values.length - 1]} enrolled in {aggActuals.values.length} wks</span>
+                    <span style={{ color: aggActuals.fitMultiplier < 0.8 ? 'var(--red)' : aggActuals.fitMultiplier > 1.2 ? 'var(--green)' : 'var(--text2)' }}>
+                      {aggActuals.fitMultiplier < 0.8 ? 'Behind forecast' : aggActuals.fitMultiplier > 1.2 ? 'Ahead of forecast' : 'On forecast'}
                     </span>
                   </div>
                 )}
@@ -2754,11 +2778,13 @@ function App() {
                     </>}
                     {compareOn && prevResult && snapshotTab === activeTab && <Area type="monotone" dataKey="enrolled" data={prevResult.timeline} stroke="#8c857e" strokeDasharray="4 4" fill="none" dot={false} isAnimationActive={false} />}
                     <Area type="monotone" dataKey="enrolled" stroke="#b04e30" fill={showMonteCarlo && monteCarloResult ? 'none' : 'rgba(176,78,48,0.12)'} strokeWidth={2.5} dot={false} isAnimationActive={false} />
-                    {actualsData && actualsData.mode === 'aggregate' && actualsData.values && <Area type="monotone" dataKey="actual" data={actualsData.values.map((v, i) => ({ week: i + 1, actual: v }))} stroke="#2d7a50" strokeWidth={2.5} fill="none" dot={{ r: 3, fill: '#2d7a50' }} isAnimationActive={false} />}
+                    {aggActuals && aggActuals.values && <Area type="monotone" dataKey="actual" data={aggActuals.values.map((v, i) => ({ week: i + 1, actual: v }))} stroke="#2d7a50" strokeWidth={2.5} fill="none" dot={{ r: 3, fill: '#2d7a50' }} isAnimationActive={false} />}
                   </AreaChart>
                 </ResponsiveContainer>
                 </div>
               </div>
+              );
+              })()}
               <div className="result-card">
                 <h4>Stage Utilization</h4>
                 <div className="hm-legend"><span style={{ color: '#2d7a50' }}>Spare</span><span style={{ color: '#b07d20' }}>Busy</span><span style={{ color: '#a63d34' }}>Bottleneck</span></div>
@@ -2799,7 +2825,7 @@ function App() {
                 <div className="wb-title">Multi-Site View: Forecast enrollment across your site portfolio</div>
                 <div className="wb-desc">Edit sites inline, import a CSV, or load a sample scenario. Sites have a 4-week ramp-up by default. Click <strong>+ Calibrate</strong> above the chart to paste observed per-site enrollment — each matched site's rate rescales and gets a green dot. Click the <strong>→</strong> on any row to drill in (edits sync back).</div>
               </div>
-              <button className="wb-close" onClick={() => setShowWelcome(p => ({ ...p, site: false }))}>&times;</button>
+              <button className="wb-close" aria-label="Dismiss welcome banner" onClick={() => setShowWelcome(p => ({ ...p, site: false }))}>&times;</button>
             </div>
           )}
           <div className="site-section">
@@ -2897,7 +2923,7 @@ function App() {
                 <div className="wb-title">Single Site View: Model one site's startup and patient pipeline</div>
                 <div className="wb-desc">Click any Gantt bar to edit regulatory, legal, or operational milestones — First Patient In is computed from the critical path. Add referrals, tune funnel stages, and set coordinator FTEs (~8 patients/coordinator, <strong>SCRS 2022</strong>). When drilled in from Multi-Site, edits sync back to the linked row — look for the <strong>Syncing to "…"</strong> pill in the toolbar.</div>
               </div>
-              <button className="wb-close" onClick={() => setShowWelcome(p => ({ ...p, single: false }))}>&times;</button>
+              <button className="wb-close" aria-label="Dismiss welcome banner" onClick={() => setShowWelcome(p => ({ ...p, single: false }))}>&times;</button>
             </div>
           )}
           <div className="ss-section">
