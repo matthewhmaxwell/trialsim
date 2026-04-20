@@ -1,5 +1,42 @@
 # Trialsim Changelog
 
+## v0.4.2 — 2026-04-19
+
+Second-pass pre-launch polish from a multidisciplinary re-review. Tightens the WCAG AA surface and kills a silent no-op that was surfacing a misleading "calibrated" indicator.
+
+### Accessibility
+- Multi-Site sortable column headers: `tabIndex=0`, `role="columnheader"`, `aria-sort` cycles `none` / `ascending` / `descending`, Enter/Space triggers sort. Previously mouse-only.
+- Topbar "Trialsim" wordmark is now keyboard-reachable (`role="link"` + `aria-label` + Enter/Space handler). Was a `cursor: pointer` `<h1>` with no keyboard path to return home.
+- `<input>` focus rings: the two `outline: none` rules with <1.2:1 box-shadow replacements now use a 2px solid accent outline via `:focus-visible` (WCAG 1.4.11 / 2.4.7).
+- Welcome-banner × buttons all get `aria-label="Dismiss welcome banner"`.
+- Home page (marketing view) gets its own skip-to-main-content link and `<main id="trialsim-main">` landmark. v0.4.1's landmarks only covered the in-app views.
+- Tab bar reverted from partial `role="tablist"` + `aria-controls="trialsim-main"` (which pointed at a landmark, not a `role="tabpanel"`, and was missing arrow-key navigation) back to plain `<button>`s with `aria-current="page"` on the active tab. Simpler, still accessible, and no broken ARIA relationship. Revisit when full APG tablist with roving tabIndex + arrows lands.
+
+### UX / copy
+- **Report cover disclaimer.** "Planning use only. Not a regulatory submission, IND/IDE deliverable, or contractual feasibility commitment. Calibrate against observed local data before any commitment." Scenario PDFs get forwarded inside CROs unsupervised; missing this line was the one copy gap with real legal-review risk.
+- **Share-link toast** trimmed. Long form: `Link copied (N chars). May be truncated in chat clients. Contains site names + costs — don't share in public channels.` Short form is one line.
+- **Clip-at-100% badge tooltip** rewritten from dev-speak ("effective multiplier is lower than the preset nominal") to plain English: "This TA preset would push conversion to N% at this stage. We've capped it at 100%, so the TA's effective boost here is smaller than its label implies."
+- Removed the dead `Unsaved changes · Export to save` chip. `hasEdited` was stubbed to `false` since v0.4; the chip's label was misleading (autosave + Save Scenario are the actual save paths) and was unreachable dead code.
+
+### Correctness
+- **Calibrate button hidden on Single Site.** Aggregate calibration on Single was fitting a multiplier that was never applied to the site's referrals or funnel, surfacing a lying "Calibrated (1)" green badge + success toast with no actual effect on the chart or stats. Hide the button until the SS chart wires through `actualsData.fitMultiplier`; tracked for v0.5.
+- `kbdBtn(onClick, opts)`: destructure `disabled` out of `opts` so it doesn't leak as an invalid HTML attribute on a `<div>`. Also blocks `onClick`/`onKeyDown` when disabled and surfaces `aria-disabled`.
+
+### Refactor
+- `aggActuals` helper in the Study-View result card: 4 repeated `actualsData && actualsData.mode === 'aggregate' && ...` guards collapsed to a single alias scoped to the Study timeline block. Prevents a 5th drift.
+
+### Meta
+- `.gitignore` HANDOFF.md so the handoff-scratch doc stops nagging `git status`.
+- Comment on `feedback.js` explaining why it's intentionally NOT SRI-pinned: same-origin first-party script, coupling cost outweighs the non-existent security gain (per-subdomain SFTP accounts are the correct hardening here).
+
+### Known gaps (deferred to v0.5 or Wave B)
+- Full ARIA APG tablist pattern (arrow keys, roving tabIndex, `role="tabpanel"`)
+- Response-header CSP (frame-ancestors, HSTS, X-Frame-Options) — needs IONOS config
+- Biostats rigor: median-of-ratios calibration, lognormal bias correction, DOI-level citations, Single-Site aggregate calibration wiring, `screenFailBoost × 0.25` coefficient documentation
+- Copy/positioning (Wave B legal): H1 subhead, license clarity for CROs, sources acronyms, welcome-banner density
+
+---
+
 ## v0.4.1 — 2026-04-19
 
 Pre-launch hardening pass. Accessibility, security, correctness, and polish from a multidisciplinary review (QA, biostats, a11y, security, copy, code review, ops).
