@@ -1,5 +1,51 @@
 # Trialsim Changelog
 
+## v0.4.3 — 2026-04-20
+
+Reset / zero / blank primitives + a deterministic site generator + toolbar and typography polish. Also closes the iframe-clickjacking gap at the server layer.
+
+### New — scoped data controls
+- **"Blank" preset in each view's template dropdown.** Study, Multi-Site, and Single-Site each get a "Blank — start from scratch" option that replaces the current view's pre-populated sample data with an empty skeleton (preserves terminal-stage markers so the sim still runs). Use case: user wants to paste their own feasibility data without deleting entity-by-entity.
+- **"Zero out this view…" action in the ⋯ menu.** Keeps the user's current row/stage structure but clears every name and zeroes every numeric field. Pushes to the undo stack so ⌘Z restores exactly. Per-view, scoped to activeTab.
+- **"Clear all saved data…" action in the ⋯ menu.** Full local-data wipe — current autosave, saved Scenario Library, dismissed welcome banners, mobile-gate opt-out. Confirm lists exactly what's being cleared with counts. Complements the existing "Reset to defaults" which only touched the current scenario's autosave.
+
+### Correctness
+- **`generateSites` is now seeded deterministically by scenario key.** Previously used unseeded `Math.random()`, so Small/Medium/Large site rates, screen-fail %, dropout %, and cost were re-rolled on every page load — a feasibility lead could show a client "11 weeks to target" and see "12 weeks" after a refresh, with zero user input between. Same scenario → same sites, forever.
+- Home page "See How It Works" CTA did nothing. `.home` is its own scroll container (`overflow-y: auto`), so `Element.scrollIntoView` walked the wrong scroll root and left the page stuck. Switched to explicit `container.scrollTo` with offsetTop.
+- Bottom-of-page "Launch Simulator" CTA was rendering as a browser-default grey button. `.hero-cta` CSS was scoped to `.home-hero .hero-cta` only; the duplicate CTA in `.home-cta-section` matched no rule. Unscoped the selector.
+
+### Security
+- **`.htaccess` at the server layer for the `trialsim/` directory.** Response headers now set: `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. Closes the clickjacking window that the meta-CSP couldn't enforce (browsers ignore `frame-ancestors` from `<meta>`).
+
+### UX / layout
+- **Toolbar no longer clips at 1100–1280px viewports.** Topbar now `flex-wraps` with `min-height: 48px` instead of a rigid 48px that hid content off the right edge. Undo / Redo dropped to square icon-only buttons (saved ~120px — ⌘Z is primary). `Library (0)` shows as just `Library` when empty. Decorative `|` separator between Library and Report removed. `<select>` capped at 260px with ellipsis so long template names don't push buttons off-screen.
+- **Template card grid switched to `auto-fit minmax(180px, 1fr)`.** 5 templates fit cleanly in one row at standard desktop widths (was fixed 4-column, which left the new "Blank" card orphaned on its own row).
+- **Stat tiles + welcome banners — typography refinement.** Stat tile padding 12→14/16px, label 9→10px, value 20→22px with softer kerning; banner title 12→13px, body 11→12px. Reads as header + body instead of inline copy; numbers like `$2,097` and multi-line subs like `6.0 months` breathe.
+
+### A11y (round 2)
+- Multi-Site sortable column headers: `tabIndex=0`, `role="columnheader"`, `aria-sort` cycles through `none` / `ascending` / `descending`; Enter/Space triggers sort. Previously mouse-only.
+- Topbar "Trialsim" brand wordmark is keyboard-reachable (`role="link"` + `aria-label` + Enter/Space handler). Was mouse-only return-to-home.
+- Welcome-banner × buttons get `aria-label="Dismiss welcome banner"`.
+- `<input>` focus rings that had `outline: none` with <1.2:1 box-shadow replacements now use a 2px solid accent outline via `:focus-visible`.
+- Tab bar reverted from partial `role="tablist"` + broken `aria-controls` (which pointed at a landmark, not a tabpanel, and lacked arrow-key navigation) back to plain `<button>`s with `aria-current="page"`. Simpler, still accessible; revisit when full APG tablist lands.
+
+### UX polish
+- **Calibrate button hidden on Single Site.** Aggregate calibration fit a multiplier that was never applied to the site's referrals or funnel — surfaced a lying "Calibrated (1)" green badge with no effect. Restore when the SS chart wires through `actualsData.fitMultiplier`.
+- **Report cover gets a "Planning use only" disclaimer.** Scenario PDFs forwarded inside CROs unsupervised; missing this line was the one copy gap with real legal-review risk.
+- Share-link toast trimmed, now warns about confidential site names + costs every copy.
+- Clip-at-100% badge tooltip rewritten from dev-speak to plain English.
+- Removed the dead `Unsaved changes · Export to save` chip (`hasEdited` was stubbed to `false` since v0.4).
+- `kbdBtn({disabled})` no longer leaks as invalid HTML on `<div>`.
+- Removed the decoupled autosave of `activeTab` considerations — view-specific UX refined via `aggActuals` helper dedupe.
+
+### Known gaps (deferred to v0.5 or Wave B)
+- Biostats rigor: median-of-ratios calibration, lognormal bias correction, DOI-level citations, Single-Site calibration wiring, `screenFailBoost × 0.25` coefficient documentation
+- Copy/positioning (Wave B legal): H1 subhead, license clarity for CROs, sources acronyms, welcome-banner density, feature-card prioritization
+- Full ARIA APG tablist pattern with arrow-key navigation + `role="tabpanel"`
+- Per-subdomain SFTP accounts (shared `u37698966` still writes across trialsim/trialearn/trialibre/trialsites)
+
+---
+
 ## v0.4.2 — 2026-04-19
 
 Second-pass pre-launch polish from a multidisciplinary re-review. Tightens the WCAG AA surface and kills a silent no-op that was surfacing a misleading "calibrated" indicator.
